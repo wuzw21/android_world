@@ -94,7 +94,7 @@ def _instantiate_task(
   Returns:
     An instance of a task.
   """
-  task.set_device_time(env)
+  task.set_device_time(env)  # pyrefly: ignore[bad-argument-type]
   if params is None:
     if seed is not None:
       random.seed(seed)
