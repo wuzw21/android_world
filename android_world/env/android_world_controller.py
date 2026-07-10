@@ -311,16 +311,20 @@ def get_controller(
 ) -> AndroidWorldController:
   """Creates a controller by connecting to an existing Android environment."""
 
+  emulator_launcher = config_classes.EmulatorLauncherConfig(
+      emulator_console_port=console_port,
+      adb_port=console_port + 1,
+      grpc_port=grpc_port,
+  )
+  if hasattr(emulator_launcher, 'connect_to_existing'):
+    setattr(emulator_launcher, 'connect_to_existing', True)
+
   config = config_classes.AndroidEnvConfig(
       task=config_classes.FilesystemTaskConfig(
           path=_write_default_task_proto()
       ),
       simulator=config_classes.EmulatorConfig(
-          emulator_launcher=config_classes.EmulatorLauncherConfig(
-              emulator_console_port=console_port,
-              adb_port=console_port + 1,
-              grpc_port=grpc_port,
-          ),
+          emulator_launcher=emulator_launcher,
           adb_controller=config_classes.AdbControllerConfig(adb_path=adb_path),
       ),
   )
