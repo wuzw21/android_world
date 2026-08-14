@@ -701,6 +701,11 @@ def launch_app(
   activity = get_adb_activity(app_name)
   if activity is None:
     #  If the app name is not in the mapping, assume it is a package name.
+    issue_generic_request(
+        ['shell', 'am', 'force-stop', app_name],
+        env,
+        timeout_sec=launch_timeout_sec,
+    )
     response = issue_generic_request(
         ['shell', 'monkey', '-p', app_name, '1'],
         env,
