@@ -59,6 +59,30 @@ class EnvLauncherTest(absltest.TestCase):
     mock_controller.assert_called_with(mock_android_env)
     mock_async_android_env.assert_called_with(mock_controller.return_value)
 
+  @mock.patch.object(interface, "AsyncAndroidEnv", autospec=True)
+  @mock.patch.object(android_world_controller, "get_controller", autospec=True)
+  def test_get_env_can_reuse_installed_a11y_forwarder(
+      self,
+      mock_get_controller,
+      mock_async_android_env,
+  ):
+    env_launcher._get_env(
+        5556,
+        "some_adb_path",
+        8554,
+        install_a11y_forwarding_app=False,
+    )
+
+    mock_get_controller.assert_called_once_with(
+        5556,
+        "some_adb_path",
+        8554,
+        install_a11y_forwarding_app=False,
+    )
+    mock_async_android_env.assert_called_once_with(
+        mock_get_controller.return_value
+    )
+
 
 if __name__ == "__main__":
   absltest.main()

@@ -140,13 +140,16 @@ class A11yMethod(enum.Enum):
 def apply_a11y_forwarder_app_wrapper(
     env: env_interface.AndroidEnvInterface, install_a11y_forwarding_app: bool
 ) -> env_interface.AndroidEnvInterface:
-  return a11y_grpc_wrapper.A11yGrpcWrapper(
+  wrapped_env = a11y_grpc_wrapper.A11yGrpcWrapper(
       env,
       install_a11y_forwarding=install_a11y_forwarding_app,
       start_a11y_service=True,
       enable_a11y_tree_info=True,
       latest_a11y_info_only=True,
   )
+  wrapped_env._configure_grpc()
+  wrapped_env._relaunch_count = wrapped_env.stats()['relaunch_count']
+  return wrapped_env
 
 
 class AndroidWorldController(base_wrapper.BaseWrapper):
@@ -308,8 +311,22 @@ def get_controller(
     console_port: int = 5554,
     adb_path: str = DEFAULT_ADB_PATH,
     grpc_port: int = 8554,
+    install_a11y_forwarding_app: bool = True,
 ) -> AndroidWorldController:
-  """Creates a controller by connecting to an existing Android environment."""
+  """Creates a controller by connecting to an existing Android environment.
+
+  Args:
+    console_port: Emulator console port for the already-running target device.
+    adb_path: adb executable path used by android_env to issue device calls.
+    grpc_port: Emulator gRPC port used by the accessibility forwarder bridge.
+    install_a11y_forwarding_app: Whether to reinstall the Google accessibility
+      forwarder APK during controller startup. Set this to False when the APK is
+      already installed and the run must stay offline.
+
+  Returns:
+    AndroidWorld controller bound to the target emulator and accessibility
+    collection method.
+  """
 
   config = config_classes.AndroidEnvConfig(
       task=config_classes.FilesystemTaskConfig(
@@ -326,4 +343,9 @@ def get_controller(
   )
   android_env_instance = loader.load(config)
   logging.info('Setting up AndroidWorldController.')
-  return AndroidWorldController(android_env_instance)
+  if install_a11y_forwarding_app:
+    return AndroidWorldController(android_env_instance)
+  return AndroidWorldController(
+      android_env_instance,
+      install_a11y_forwarding_app=False,
+  )

@@ -19,6 +19,7 @@ and manage task execution on AndroidWorld tasks.
 """
 
 import contextlib
+import os
 import typing
 from typing import Any
 
@@ -44,11 +45,16 @@ class StateResponse(pydantic.BaseModel):
 async def lifespan(fast_api_app: fastapi.FastAPI):
     """Manages the lifecycle of the Android environment and task suite."""
     fast_api_app.state.app_android_env = env_launcher.load_and_setup_env(
-        console_port=5554,
-        emulator_setup=True,
-        freeze_datetime=True,
+        console_port=int(os.getenv("ANDROIDWORLD_CONSOLE_PORT", "5554")),
+        emulator_setup=os.getenv("ANDROIDWORLD_EMULATOR_SETUP", "0") == "1",
+        freeze_datetime=os.getenv("ANDROIDWORLD_FREEZE_DATETIME", "1") == "1",
         # adb_path="/opt/android/platform-tools/adb",
-        adb_path="adb",
+        adb_path=os.getenv("ANDROIDWORLD_ADB_PATH", "adb"),
+        grpc_port=int(os.getenv("ANDROIDWORLD_GRPC_PORT", "8554")),
+        install_a11y_forwarding_app=os.getenv(
+            "ANDROIDWORLD_INSTALL_A11Y_FORWARDER", "0"
+        )
+        == "1",
     )
     task_registry = aw_registry_module.TaskRegistry()
     aw_registry = task_registry.get_registry(task_registry.ANDROID_WORLD_FAMILY)
@@ -256,4 +262,8 @@ app.include_router(suite_router)
 app.include_router(task_router)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    uvicorn.run(
+        app,
+        host=os.getenv("ANDROIDWORLD_SERVER_HOST", "0.0.0.0"),
+        port=int(os.getenv("ANDROIDWORLD_SERVER_PORT", "5000")),
+    )

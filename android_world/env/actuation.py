@@ -15,6 +15,7 @@
 """Utilies for actuation."""
 
 import copy
+import html
 import logging
 import time
 from typing import Any
@@ -278,14 +279,18 @@ def _find_target_element(
   """Determine the UI element with the closest match to target_text, by looking at the `text` and `content_description` of each UI element."""
   best_match_index = -1
   lowest_distance = int(1e9)
+  normalized_target = html.unescape(target_text)
 
   for i, element in enumerate(ui_elements):
     for attr in [element.text, element.content_description]:
       if attr is not None:
+        normalized_attr = html.unescape(attr)
         if case_sensitive:
-          distance = _levenshtein_distance(target_text, attr)
+          distance = _levenshtein_distance(normalized_target, normalized_attr)
         else:
-          distance = _levenshtein_distance(target_text.lower(), attr.lower())
+          distance = _levenshtein_distance(
+              normalized_target.lower(), normalized_attr.lower()
+          )
         if distance < lowest_distance:
           lowest_distance = distance
           best_match_index = i

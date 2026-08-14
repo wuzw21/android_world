@@ -242,6 +242,18 @@ class MarkorApp(AppSetup):
   def setup(cls, env: interface.AsyncEnv) -> None:
     super().setup(env)
 
+    adb_utils.issue_generic_request(
+        [
+            "shell",
+            "appops",
+            "set",
+            cls.package_name(),
+            "MANAGE_EXTERNAL_STORAGE",
+            "allow",
+        ],
+        env.controller,
+    )
+
     adb_utils.launch_app(cls.app_name, env.controller)
     try:
       controller = tools.AndroidToolController(env=env.controller)
@@ -258,8 +270,6 @@ class MarkorApp(AppSetup):
       time.sleep(2.0)
 
       controller.click_element("OK")
-      time.sleep(2.0)
-      controller.click_element("Allow access to manage all files")
       time.sleep(2.0)
     finally:
       adb_utils.close_app(cls.app_name, env.controller)
@@ -413,22 +423,29 @@ class SimpleSMSMessengerApp(AppSetup):
   def setup(cls, env: interface.AsyncEnv) -> None:
     super().setup(env)
 
-    # Make Simple Messenger the default SMS app.
+    package_name = adb_utils.extract_package_name(
+        adb_utils.get_adb_activity("simple sms messenger")
+    )
     adb_utils.set_default_app(
         "sms_default_application",
-        adb_utils.extract_package_name(
-            adb_utils.get_adb_activity("simple sms messenger")
-        ),
+        package_name,
+        env.controller,
+    )
+    adb_utils.issue_generic_request(
+        [
+            "shell",
+            "cmd",
+            "role",
+            "add-role-holder",
+            "android.app.role.SMS",
+            package_name,
+        ],
         env.controller,
     )
 
     adb_utils.launch_app(cls.app_name, env.controller)
     try:
-      controller = tools.AndroidToolController(env=env.controller)
       time.sleep(2.0)
-      controller.click_element("SMS Messenger")
-      time.sleep(2.0)
-      controller.click_element("Set as default")
     finally:
       adb_utils.close_app(cls.app_name, env.controller)
 
@@ -643,8 +660,8 @@ class VlcApp(AppSetup):
 
   videos_path = "/storage/emulated/0/VLCVideos"  # Store videos here.
   apk_names = (
-      "org.videolan.vlc_13050408.apk",
-      "org.videolan.vlc_13050407.apk",  # Arch86 for Mac M1/M2/etc.
+      "org.videolan.vlc_13050407.apk",  # arm64-v8a for Apple Silicon AVDs.
+      "org.videolan.vlc_13050408.apk",  # x86_64 fallback.
   )
   app_name = "vlc"
 

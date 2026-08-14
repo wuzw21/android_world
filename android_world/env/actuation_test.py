@@ -102,6 +102,20 @@ class TestCreateReferredClickAction(absltest.TestCase):
         (2, 0),
     )
 
+  def test_html_entity_is_normalized_before_matching(self):
+    ui_elements = [
+        representation_utils.UIElement(
+            text='Accept &amp; continue', content_description=''
+        )
+    ]
+
+    self.assertEqual(
+        actuation._find_target_element(
+            ui_elements, 'Accept & continue', case_sensitive=True
+        ),
+        (0, 0),
+    )
+
   def test_no_exact_match(self):
     """Test with no exact matching elements."""
     ui_elements = [

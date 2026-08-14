@@ -93,6 +93,8 @@ class AndroidWorldControllerTest(absltest.TestCase):
         enable_a11y_tree_info=True,
         latest_a11y_info_only=True,
     )
+    env._env._configure_grpc.assert_called_once()
+    env._env.stats.assert_called_once()
     env._env.reset.assert_called_once()
 
   def test_screen_size(self):
