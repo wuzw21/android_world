@@ -87,20 +87,20 @@ def get_a11y_tree(
     env.attempt_enable_networking()
     time.sleep(1.0)
 
-  forest: Optional[
-      android_accessibility_forest_pb2.AndroidAccessibilityForest
-  ] = None
-  for _ in range(max_retries):
-    try:
-      forest = env.accumulate_new_extras()['accessibility_tree'][-1]  # pytype:disable=attribute-error
-      return forest
-    except KeyError:
-      logging.warning('Could not get a11y tree, retrying.')
-    time.sleep(sleep_duration)
+  if max_retries < 1:
+    raise ValueError('max_retries must be at least 1.')
 
-  if forest is None:
-    raise RuntimeError('Could not get a11y tree.')
-  return forest
+  for attempt in range(max_retries):
+    extras = env.accumulate_new_extras()  # pytype:disable=attribute-error
+    forests = extras.get('accessibility_tree')
+    if forests is not None and len(forests):
+      return forests[-1]
+    if attempt + 1 < max_retries:
+      time.sleep(sleep_duration)
+
+  raise RuntimeError(
+      f'Could not get a11y tree after {max_retries} attempts.'
+  )
 
 
 _TASK_PATH = file_utils.convert_to_posix_path(
@@ -145,6 +145,8 @@ def apply_a11y_forwarder_app_wrapper(
       install_a11y_forwarding=install_a11y_forwarding_app,
       start_a11y_service=True,
       enable_a11y_tree_info=True,
+      add_latest_a11y_info_to_obs=True,
+      a11y_info_timeout=0.5,
       latest_a11y_info_only=True,
   )
   wrapped_env._configure_grpc()
@@ -244,7 +246,9 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
   def _process_timestep(self, timestep: dm_env.TimeStep) -> dm_env.TimeStep:
     """Adds a11y tree info to the observation."""
     if self._a11y_method == A11yMethod.A11Y_FORWARDER_APP:
-      forest = self.get_a11y_forest()
+      forest = timestep.observation.get('a11y_forest')
+      if forest is None:
+        forest = self.get_a11y_forest()
       ui_elements = representation_utils.forest_to_ui_elements(
           forest,
           exclude_invisible_elements=True,
