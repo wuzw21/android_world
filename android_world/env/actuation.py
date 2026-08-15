@@ -15,6 +15,7 @@
 """Utilies for actuation."""
 
 import copy
+import html
 import logging
 import time
 from typing import Any
@@ -246,6 +247,70 @@ def find_and_click_element(
   execute_adb_action(action, ui_elements, screen_size, env)
 
 
+def find_and_click_element_by_resource_id(
+    resource_ids: str | tuple[str, ...],
+    env: android_world_controller.AndroidWorldController,
+    timeout_sec: float = 10.0,
+) -> None:
+  """Finds an element by Android resource ID and clicks it."""
+  if isinstance(resource_ids, str):
+    resource_ids = (resource_ids,)
+  action = _wait_and_find_click_element_by_resource_id(
+      resource_ids, env, timeout_sec
+  )
+  ui_elements = env.get_ui_elements()
+  execute_adb_action(action, ui_elements, (0, 0), env)
+
+
+def wait_for_resource_id(
+    resource_ids: str | tuple[str, ...],
+    env: android_world_controller.AndroidWorldController,
+    timeout_sec: float = 10.0,
+) -> None:
+  """Waits until one of the requested Android resource IDs is visible."""
+  if isinstance(resource_ids, str):
+    resource_ids = (resource_ids,)
+  _wait_and_find_click_element_by_resource_id(
+      resource_ids, env, timeout_sec
+  )
+
+
+def _wait_and_find_click_element_by_resource_id(
+    resource_ids: tuple[str, ...],
+    env: android_world_controller.AndroidWorldController,
+    timeout_sec: float,
+) -> json_action.JSONAction:
+  """Waits for one of the requested resource IDs to appear."""
+  start = time.time()
+  while True:
+    element = _find_target_resource_element(
+        env.get_ui_elements(), resource_ids
+    )
+    if element >= 0:
+      return json_action.JSONAction(action_type='click', index=element)
+    if time.time() - start >= timeout_sec:
+      joined_ids = ', '.join(resource_ids)
+      raise ValueError(f'Target resource ID not found: {joined_ids}.')
+
+
+def _find_target_resource_element(
+    ui_elements: list[representation_utils.UIElement],
+    resource_ids: tuple[str, ...],
+) -> int:
+  """Returns the first element matching one of the requested resource IDs."""
+  target_ids = set(resource_ids)
+  target_names = {resource_id.rsplit('/', 1)[-1] for resource_id in resource_ids}
+  for index, element in enumerate(ui_elements):
+    for resource_id in (element.resource_name, element.resource_id):
+      if resource_id is None:
+        continue
+      if resource_id in target_ids:
+        return index
+      if resource_id.rsplit('/', 1)[-1] in target_names:
+        return index
+  return -1
+
+
 def _wait_and_find_click_element(
     target_text: str,
     env: android_world_controller.AndroidWorldController,
@@ -278,14 +343,18 @@ def _find_target_element(
   """Determine the UI element with the closest match to target_text, by looking at the `text` and `content_description` of each UI element."""
   best_match_index = -1
   lowest_distance = int(1e9)
+  normalized_target = html.unescape(target_text)
 
   for i, element in enumerate(ui_elements):
     for attr in [element.text, element.content_description]:
       if attr is not None:
+        normalized_attr = html.unescape(attr)
         if case_sensitive:
-          distance = _levenshtein_distance(target_text, attr)
+          distance = _levenshtein_distance(normalized_target, normalized_attr)
         else:
-          distance = _levenshtein_distance(target_text.lower(), attr.lower())
+          distance = _levenshtein_distance(
+              normalized_target.lower(), normalized_attr.lower()
+          )
         if distance < lowest_distance:
           lowest_distance = distance
           best_match_index = i

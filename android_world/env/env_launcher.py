@@ -29,11 +29,14 @@ _ANDROID_WORLD_API_LEVEL = 33
 
 
 def _get_env(
-    console_port: int, adb_path: str, grpc_port: int
+    console_port: int,
+    adb_path: str,
+    grpc_port: int,
+    install_a11y_forwarding_app: bool,
 ) -> interface.AsyncEnv:
   """Creates an AsyncEnv by connecting to an existing Android environment."""
   controller = android_world_controller.get_controller(
-      console_port, adb_path, grpc_port
+      console_port, adb_path, grpc_port, install_a11y_forwarding_app
   )
   return interface.AsyncAndroidEnv(controller)
 
@@ -99,6 +102,7 @@ def load_and_setup_env(
     freeze_datetime: bool = True,
     adb_path: str = android_world_controller.DEFAULT_ADB_PATH,
     grpc_port: int = 8554,
+    install_a11y_forwarding_app: bool = True,
 ) -> interface.AsyncEnv:
   """Create environment with `get_env()` and perform env setup and validation.
 
@@ -118,10 +122,18 @@ def load_and_setup_env(
       2023, to ensure consistent benchmarking.
     adb_path: The location of the adb binary.
     grpc_port: The port for gRPC communication with the emulator.
+    install_a11y_forwarding_app: Whether AndroidWorld should reinstall the
+      Google accessibility forwarder APK. Keep True for first-time setup; set
+      False for offline evidence runs after the APK is already installed.
 
   Returns:
     An interactable Android environment.
   """
-  env = _get_env(console_port, adb_path, grpc_port)
+  env = _get_env(
+      console_port,
+      adb_path,
+      grpc_port,
+      install_a11y_forwarding_app,
+  )
   setup_env(env, emulator_setup, freeze_datetime)
   return env

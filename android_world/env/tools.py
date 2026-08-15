@@ -49,6 +49,22 @@ class AndroidToolController:
   def click_element(self, element_text: str):
     actuation.find_and_click_element(element_text, self._env)
 
+  def click_resource_id(
+      self,
+      resource_ids: str | tuple[str, ...],
+      timeout_sec: float = 10.0,
+  ) -> None:
+    actuation.find_and_click_element_by_resource_id(
+        resource_ids, self._env, timeout_sec
+    )
+
+  def wait_for_resource_id(
+      self,
+      resource_ids: str | tuple[str, ...],
+      timeout_sec: float = 10.0,
+  ) -> None:
+    actuation.wait_for_resource_id(resource_ids, self._env, timeout_sec)
+
   def open_web_page(self, url: str):
     """Open a web page in the default browser on an Android device.
 

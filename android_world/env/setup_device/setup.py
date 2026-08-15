@@ -27,6 +27,7 @@ from typing import Type
 from absl import logging
 from android_env import env_interface
 from android_env.components import errors
+from android_env.proto import adb_pb2
 from android_world.env import adb_utils
 from android_world.env import interface
 from android_world.env.setup_device import apps
@@ -145,8 +146,18 @@ def maybe_install_app(
     return
   logging.info("Installing app: %s.", app.app_name)
 
+  apk_names = app.apk_names
+  apk_names_by_abi = getattr(app, "apk_names_by_abi", {})
+  if apk_names_by_abi:
+    abi_response = adb_utils.issue_generic_request(
+        ["shell", "getprop", "ro.product.cpu.abi"], env.controller
+    )
+    if abi_response.status == adb_pb2.AdbResponse.Status.OK:
+      device_abi = abi_response.generic.output.decode("utf-8").strip()
+      apk_names = apk_names_by_abi.get(device_abi, apk_names)
+
   apk_installed = False
-  for apk_name in app.apk_names:
+  for apk_name in apk_names:
     try:
       download_and_install_apk(apk_name, env.controller.env)
       apk_installed = True

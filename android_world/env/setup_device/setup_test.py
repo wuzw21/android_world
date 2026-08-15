@@ -16,6 +16,7 @@ from unittest import mock
 
 from absl.testing import absltest
 from android_env.components import errors
+from android_env.proto import adb_pb2
 from android_world.env import adb_utils
 from android_world.env import interface
 from android_world.env import tools
@@ -58,6 +59,10 @@ class SetupTest(absltest.TestCase):
         mock.patch.object(adb_utils, "issue_generic_request")
     )
 
+  def tearDown(self):
+    mock.patch.stopall()
+    super().tearDown()
+
   @mock.patch.object(tools, "AndroidToolController")
   @mock.patch.object(setup, "download_and_install_apk")
   @mock.patch.object(app_snapshot, "save_snapshot")
@@ -91,6 +96,9 @@ class InstallApksTest(absltest.TestCase):
   def setUp(self):
     super().setUp()
     self.env = mock.create_autospec(interface.AsyncEnv)
+    self.mock_issue_generic_request = self.enter_context(
+        mock.patch.object(adb_utils, "issue_generic_request")
+    )
     self.mockdownload_and_install_apk = self.enter_context(
         mock.patch.object(setup, "download_and_install_apk")
     )
@@ -133,6 +141,70 @@ class InstallApksTest(absltest.TestCase):
         mock.call("apk3", self.env.controller.env),
     ]
     self.mockdownload_and_install_apk.assert_has_calls(expected_calls)
+
+  def test_vlc_prefers_x86_apk_on_x86_device(self):
+    response = adb_pb2.AdbResponse(status=adb_pb2.AdbResponse.Status.OK)
+    response.generic.output = b"x86_64\n"
+    self.mock_issue_generic_request.return_value = response
+
+    setup.maybe_install_app(apps.VlcApp, self.env)
+
+    self.mockdownload_and_install_apk.assert_called_once_with(
+        "org.videolan.vlc_13050408.apk", self.env.controller.env
+    )
+
+  def test_vlc_prefers_arm_apk_on_arm_device(self):
+    response = adb_pb2.AdbResponse(status=adb_pb2.AdbResponse.Status.OK)
+    response.generic.output = b"arm64-v8a\n"
+    self.mock_issue_generic_request.return_value = response
+
+    setup.maybe_install_app(apps.VlcApp, self.env)
+
+    self.mockdownload_and_install_apk.assert_called_once_with(
+        "org.videolan.vlc_13050407.apk", self.env.controller.env
+    )
+
+
+class VlcSetupTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.env = mock.create_autospec(interface.AsyncEnv)
+    self.enter_context(mock.patch.object(apps.AppSetup, "setup"))
+    self.enter_context(mock.patch.object(apps.time, "sleep"))
+    self.enter_context(
+        mock.patch.object(
+            adb_utils, "get_adb_activity", return_value="org.videolan.vlc/.Start"
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            adb_utils, "extract_package_name", return_value="org.videolan.vlc"
+        )
+    )
+    self.enter_context(mock.patch.object(adb_utils, "grant_permissions"))
+    self.enter_context(mock.patch.object(adb_utils, "issue_generic_request"))
+    self.enter_context(mock.patch.object(adb_utils, "close_app"))
+    self.enter_context(
+        mock.patch.object(
+            apps.file_utils, "check_directory_exists", return_value=True
+        )
+    )
+    controller_class = self.enter_context(
+        mock.patch.object(tools, "AndroidToolController")
+    )
+    self.controller = controller_class.return_value
+
+  def test_vlc_setup_accepts_home_screen_after_skip(self):
+    apps.VlcApp.setup(self.env)
+
+    self.controller.click_resource_id.assert_called_once_with(
+        "org.videolan.vlc:id/skip_button"
+    )
+    self.controller.wait_for_resource_id.assert_called_once_with(
+        "org.videolan.vlc:id/main_toolbar", timeout_sec=2.0
+    )
+    self.controller.click_element.assert_not_called()
 
 
 if __name__ == "__main__":

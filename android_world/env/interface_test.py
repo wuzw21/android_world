@@ -43,7 +43,16 @@ class InterfaceTest(absltest.TestCase):
         states[2],
     )
 
-  def test_ui_stability_false_due_to_timeout(self):
+  @mock.patch('android_world.env.interface.time.sleep')
+  @mock.patch('android_world.env.interface.time.time')
+  def test_ui_stability_false_due_to_timeout(
+      self, mocked_time, mocked_sleep
+  ):
+    clock = [0.0]
+    mocked_time.side_effect = lambda: clock[0]
+    mocked_sleep.side_effect = lambda duration: clock.__setitem__(
+        0, clock[0] + duration
+    )
     changing_ui_elements = [
         representation_utils.UIElement(text=f"Element{i}") for i in range(10)
     ]
@@ -85,6 +94,44 @@ class InterfaceTest(absltest.TestCase):
         cur,
         states[5],
     )
+
+  def test_get_state_defaults_to_omniflow_oob_get_state(self):
+    payload = {
+        'success': True,
+        'xml': (
+            '<hierarchy>'
+            '<node text="OOB Button" bounds="[1,2][3,4]" enabled="true" />'
+            '</hierarchy>'
+        ),
+        'display_width': 10,
+        'display_height': 20,
+        'package_name': 'com.example',
+        'activity_name': 'com.example/.MainActivity',
+    }
+    controller = mock.MagicMock()
+    controller.logical_screen_size = (10, 20)
+    env = interface.AsyncAndroidEnv(controller)
+
+    with mock.patch.dict(
+        'os.environ',
+        {
+            'OMNIFLOW_OBSERVE_BACKEND': 'oob',
+            'OMNIFLOW_OOB_DEVICE_URL': '',
+        },
+        clear=False,
+    ), mock.patch.object(
+        interface,
+        '_omniflow_read_oob_debug_get_state',
+        return_value=payload,
+    ) as read_oob:
+      state = env.get_state()
+
+    read_oob.assert_called_once_with(controller)
+    controller.step.assert_not_called()
+    self.assertEqual(state.auxiliaries['observe_backend'], 'oob_get_state')
+    self.assertEqual(state.auxiliaries['package_name'], 'com.example')
+    self.assertEqual(state.ui_elements[0].text, 'OOB Button')
+    self.assertEqual(state.pixels.shape, (20, 10, 3))
 
 
 if __name__ == "__main__":

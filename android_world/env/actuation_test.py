@@ -102,6 +102,20 @@ class TestCreateReferredClickAction(absltest.TestCase):
         (2, 0),
     )
 
+  def test_html_entity_is_normalized_before_matching(self):
+    ui_elements = [
+        representation_utils.UIElement(
+            text='Accept &amp; continue', content_description=''
+        )
+    ]
+
+    self.assertEqual(
+        actuation._find_target_element(
+            ui_elements, 'Accept & continue', case_sensitive=True
+        ),
+        (0, 0),
+    )
+
   def test_no_exact_match(self):
     """Test with no exact matching elements."""
     ui_elements = [
@@ -111,6 +125,35 @@ class TestCreateReferredClickAction(absltest.TestCase):
         ui_elements, 'target', case_sensitive=True
     )
     self.assertGreater(distance, 0)
+
+  def test_resource_id_matches_accessibility_resource_name(self):
+    ui_elements = [
+        representation_utils.UIElement(
+            resource_name='com.android.chrome:id/terms_accept'
+        )
+    ]
+
+    self.assertEqual(
+        actuation._find_target_resource_element(
+            ui_elements, ('com.android.chrome:id/terms_accept',)
+        ),
+        0,
+    )
+
+  def test_resource_id_matches_uiautomator_resource_id(self):
+    ui_elements = [
+        representation_utils.UIElement(
+            resource_id='com.android.chrome:id/signin_fre_dismiss_button'
+        )
+    ]
+
+    self.assertEqual(
+        actuation._find_target_resource_element(
+            ui_elements,
+            ('com.android.chrome:id/signin_fre_dismiss_button',),
+        ),
+        0,
+    )
 
 
 class ExecuteAdbActionTest(absltest.TestCase):
@@ -150,6 +193,39 @@ class ExecuteAdbActionTest(absltest.TestCase):
           action, self.screen_elements, self.screen_size, self.mock_env
       )
       mock_tap_screen.assert_called_once_with(50, 50, self.mock_env)
+
+  def test_find_and_click_element_by_resource_id(self):
+    controller = mock.MagicMock()
+    controller.get_ui_elements.return_value = [
+        representation_utils.UIElement(
+            resource_name='com.android.chrome:id/negative_button',
+            bbox_pixels=representation_utils.BoundingBox(
+                x_min=10, x_max=50, y_min=20, y_max=60
+            ),
+        )
+    ]
+
+    with mock.patch.object(adb_utils, 'tap_screen') as mock_tap_screen:
+      actuation.find_and_click_element_by_resource_id(
+          'com.android.chrome:id/negative_button', controller
+      )
+
+    mock_tap_screen.assert_called_once_with(30, 40, controller)
+
+  def test_wait_for_resource_id_does_not_click(self):
+    controller = mock.MagicMock()
+    controller.get_ui_elements.return_value = [
+        representation_utils.UIElement(
+            resource_id='org.videolan.vlc:id/main_toolbar'
+        )
+    ]
+
+    with mock.patch.object(adb_utils, 'tap_screen') as mock_tap_screen:
+      actuation.wait_for_resource_id(
+          'org.videolan.vlc:id/main_toolbar', controller
+      )
+
+    mock_tap_screen.assert_not_called()
 
   def test_input_text(self):
     action = json_action.JSONAction(

@@ -18,6 +18,7 @@ from unittest import mock
 
 from absl.testing import absltest
 from android_env import env_interface
+from android_env.components import errors
 from android_env.proto import adb_pb2
 from android_world.env import adb_utils
 
@@ -36,6 +37,32 @@ class AdbTestSetup(absltest.TestCase):
   def tearDown(self):
     super().tearDown()
     mock.patch.stopall()
+
+
+class InstallApkTest(AdbTestSetup):
+
+  @mock.patch.object(adb_utils.os.path, 'exists', return_value=True)
+  def test_install_apk_accepts_ok_response(self, unused_exists):
+    self.mock_issue_generic_request.return_value = adb_pb2.AdbResponse(
+        status=adb_pb2.AdbResponse.Status.OK
+    )
+
+    adb_utils.install_apk('/tmp/app.apk', self.mock_env)
+
+    self.mock_issue_generic_request.assert_called_once_with(
+        ['install', '/tmp/app.apk'], self.mock_env, timeout_sec=30.0
+    )
+
+  @mock.patch.object(adb_utils.os.path, 'exists', return_value=True)
+  def test_install_apk_rejects_error_response(self, unused_exists):
+    response = adb_pb2.AdbResponse(status=adb_pb2.AdbResponse.Status.ADB_ERROR)
+    response.generic.output = b'INSTALL_FAILED_NO_MATCHING_ABIS'
+    self.mock_issue_generic_request.return_value = response
+
+    with self.assertRaisesRegex(
+        errors.AdbControllerError, 'INSTALL_FAILED_NO_MATCHING_ABIS'
+    ):
+      adb_utils.install_apk('/tmp/app.apk', self.mock_env)
 
 
 class PhoneUtilsTest(AdbTestSetup):

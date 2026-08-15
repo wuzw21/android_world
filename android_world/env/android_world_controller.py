@@ -107,6 +107,12 @@ _TASK_PATH = file_utils.convert_to_posix_path(
     file_utils.get_local_tmp_directory(), 'default.textproto'
 )
 DEFAULT_ADB_PATH = '~/Android/Sdk/platform-tools/adb'
+_ACCESSIBILITY_FORWARDER_PACKAGE = (
+    'com.google.androidenv.accessibilityforwarder'
+)
+_ACCESSIBILITY_FORWARDER_CRASH_MARKER = (
+    f'application error: {_ACCESSIBILITY_FORWARDER_PACKAGE}'
+)
 
 
 # UI tree-specific keys that are added to observations:
@@ -204,6 +210,35 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
     ).env
     # pylint: enable=protected-access
     # pytype: enable=attribute-error
+
+  def ensure_accessibility_forwarder_ready(self) -> bool:
+    windows_response = adb_utils.issue_generic_request(
+        ['shell', 'dumpsys', 'window', 'windows'], self._env
+    )
+    windows_output = windows_response.generic.output
+    if isinstance(windows_output, bytes):
+      windows_output = windows_output.decode(errors='replace')
+    if _ACCESSIBILITY_FORWARDER_CRASH_MARKER not in str(
+        windows_output or ''
+    ).casefold():
+      return False
+    close_response = adb_utils.issue_generic_request(
+        [
+            'shell',
+            'am',
+            'broadcast',
+            '-a',
+            'android.intent.action.CLOSE_SYSTEM_DIALOGS',
+        ],
+        self._env,
+    )
+    adb_utils.check_ok(
+        close_response,
+        'Could not dismiss accessibility forwarder crash dialog.',
+    )
+    self.refresh_env()
+    get_a11y_tree(self._env)
+    return True
 
   def _get_a11y_forest(
       self,
@@ -308,8 +343,22 @@ def get_controller(
     console_port: int = 5554,
     adb_path: str = DEFAULT_ADB_PATH,
     grpc_port: int = 8554,
+    install_a11y_forwarding_app: bool = True,
 ) -> AndroidWorldController:
-  """Creates a controller by connecting to an existing Android environment."""
+  """Creates a controller by connecting to an existing Android environment.
+
+  Args:
+    console_port: Emulator console port for the already-running target device.
+    adb_path: adb executable path used by android_env to issue device calls.
+    grpc_port: Emulator gRPC port used by the accessibility forwarder bridge.
+    install_a11y_forwarding_app: Whether to reinstall the Google accessibility
+      forwarder APK during controller startup. Set this to False when the APK is
+      already installed and the run must stay offline.
+
+  Returns:
+    AndroidWorld controller bound to the target emulator and accessibility
+    collection method.
+  """
 
   config = config_classes.AndroidEnvConfig(
       task=config_classes.FilesystemTaskConfig(
@@ -326,4 +375,7 @@ def get_controller(
   )
   android_env_instance = loader.load(config)
   logging.info('Setting up AndroidWorldController.')
-  return AndroidWorldController(android_env_instance)
+  return AndroidWorldController(
+      android_env_instance,
+      install_a11y_forwarding_app=install_a11y_forwarding_app,
+  )

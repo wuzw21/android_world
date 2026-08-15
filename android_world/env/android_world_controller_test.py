@@ -161,6 +161,62 @@ class AndroidWorldControllerTest(absltest.TestCase):
     self.assertEqual(forest, 'success')
     mock_refresh_env.assert_called_once()
 
+  @mock.patch.object(android_world_controller, 'get_a11y_tree')
+  @mock.patch.object(
+      android_world_controller.AndroidWorldController, 'refresh_env'
+  )
+  @mock.patch.object(adb_utils, 'issue_generic_request')
+  def test_recovers_visible_accessibility_forwarder_crash(
+      self,
+      mock_issue_generic_request,
+      mock_refresh_env,
+      mock_get_a11y_tree,
+  ):
+    crash_response = fake_adb_responses.create_successful_generic_response(
+        'Window Application Error: '
+        'com.google.androidenv.accessibilityforwarder'
+    )
+    close_response = fake_adb_responses.create_successful_generic_response('')
+    mock_issue_generic_request.side_effect = [crash_response, close_response]
+    mock_get_a11y_tree.return_value = 'recovered'
+    mock_base_env = mock.Mock(spec=env_interface.AndroidEnvInterface)
+    env = android_world_controller.AndroidWorldController(mock_base_env)
+
+    recovered = env.ensure_accessibility_forwarder_ready()
+
+    self.assertTrue(recovered)
+    mock_issue_generic_request.assert_has_calls([
+        mock.call(['shell', 'dumpsys', 'window', 'windows'], env._env),
+        mock.call(
+            [
+                'shell',
+                'am',
+                'broadcast',
+                '-a',
+                'android.intent.action.CLOSE_SYSTEM_DIALOGS',
+            ],
+            env._env,
+        ),
+    ])
+    mock_refresh_env.assert_called_once()
+    mock_get_a11y_tree.assert_called_once_with(env._env)
+
+  @mock.patch.object(adb_utils, 'issue_generic_request')
+  def test_does_not_refresh_healthy_accessibility_forwarder(
+      self, mock_issue_generic_request
+  ):
+    mock_issue_generic_request.return_value = (
+        fake_adb_responses.create_successful_generic_response(
+            'mCurrentFocus=Window{123 net.gsantner.markor/.MainActivity}'
+        )
+    )
+    mock_base_env = mock.Mock(spec=env_interface.AndroidEnvInterface)
+    env = android_world_controller.AndroidWorldController(mock_base_env)
+
+    recovered = env.ensure_accessibility_forwarder_ready()
+
+    self.assertFalse(recovered)
+
   def test_pull_file(self):
     file_contents = 'test file contents'
     remote_file_path = create_file_with_contents(file_contents)
