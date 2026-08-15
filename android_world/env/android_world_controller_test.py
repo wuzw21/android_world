@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,9 +91,56 @@ class AndroidWorldControllerTest(absltest.TestCase):
         install_a11y_forwarding=True,
         start_a11y_service=True,
         enable_a11y_tree_info=True,
+        add_latest_a11y_info_to_obs=True,
+        a11y_info_timeout=0.5,
         latest_a11y_info_only=True,
     )
+    env._env._configure_grpc.assert_called_once()
+    env._env.stats.assert_called_once()
     env._env.reset.assert_called_once()
+
+  @mock.patch.object(android_world_controller.time, 'sleep')
+  @mock.patch.object(adb_utils, 'check_airplane_mode', return_value=False)
+  @mock.patch.object(android_world_controller, '_has_wrapper', return_value=True)
+  def test_get_a11y_tree_waits_for_first_complete_tree(
+      self, unused_has_wrapper, unused_airplane_mode, mock_sleep
+  ):
+    del unused_has_wrapper, unused_airplane_mode
+    mock_env = mock.Mock()
+    mock_env.accumulate_new_extras.side_effect = [
+        {},
+        {'accessibility_tree': []},
+        {'accessibility_tree': ['success']},
+    ]
+
+    forest = android_world_controller.get_a11y_tree(
+        mock_env, max_retries=3, sleep_duration=0.25
+    )
+
+    self.assertEqual(forest, 'success')
+    self.assertEqual(mock_env.accumulate_new_extras.call_count, 3)
+    self.assertEqual(mock_sleep.call_args_list, [mock.call(0.25)] * 2)
+
+  @mock.patch.object(android_world_controller.time, 'sleep')
+  @mock.patch.object(adb_utils, 'check_airplane_mode', return_value=False)
+  @mock.patch.object(android_world_controller, '_has_wrapper', return_value=True)
+  def test_get_a11y_tree_fails_after_bounded_wait(
+      self, unused_has_wrapper, unused_airplane_mode, mock_sleep
+  ):
+    del unused_has_wrapper, unused_airplane_mode
+    mock_env = mock.Mock()
+    mock_env.accumulate_new_extras.side_effect = [
+        {},
+        {'accessibility_tree': []},
+    ]
+
+    with self.assertRaisesRegex(RuntimeError, 'after 2 attempts'):
+      android_world_controller.get_a11y_tree(
+          mock_env, max_retries=2, sleep_duration=0.25
+      )
+
+    self.assertEqual(mock_env.accumulate_new_extras.call_count, 2)
+    mock_sleep.assert_called_once_with(0.25)
 
   def test_screen_size(self):
     mock_base_env = mock.Mock(spec=env_interface.AndroidEnvInterface)
@@ -113,10 +160,12 @@ class AndroidWorldControllerTest(absltest.TestCase):
     mock_forest = mock.Mock()
     mock_ui_elements = mock.Mock()
     mock_get_logical_screen_size.return_value = (100, 200)
-    mock_get_a11y_tree.return_value = mock_forest
     mock_forest_to_ui.return_value = mock_ui_elements
     timestep = dm_env.TimeStep(
-        observation={}, reward=None, discount=None, step_type=None
+        observation={'a11y_forest': mock_forest},
+        reward=None,
+        discount=None,
+        step_type=None,
     )
 
     processed_timestep = env._process_timestep(timestep)
@@ -129,6 +178,7 @@ class AndroidWorldControllerTest(absltest.TestCase):
         mock_forest,
         exclude_invisible_elements=True,
     )
+    mock_get_a11y_tree.assert_not_called()
 
   @mock.patch.object(adb_utils, 'check_airplane_mode')
   @mock.patch.object(android_world_controller, 'get_controller')
@@ -156,7 +206,8 @@ class AndroidWorldControllerTest(absltest.TestCase):
         {'accessibility_tree': ['success']},
     ]
 
-    forest = env.get_a11y_forest()
+    with mock.patch.object(android_world_controller.time, 'sleep'):
+      forest = env.get_a11y_forest()
 
     self.assertEqual(forest, 'success')
     mock_refresh_env.assert_called_once()

@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ class MakeCall(task_eval.TaskEval):
     return check_if_dialer_with_phone_number(
         expected_number=self.phone_number,
         ui_elements=ui_elements,
-        current_activity=current_activity,
+        current_activity=current_activity,  # pyrefly: ignore[bad-argument-type]
     )
 
   def initialize_task(self, env: interface.AsyncEnv) -> None:

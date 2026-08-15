@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -201,6 +201,28 @@ class AdbSettingsTest(AdbTestSetup):
           value='',
           env=self.mock_env,
       )
+
+
+class AdbLaunchAppTest(AdbTestSetup):
+
+  def test_package_name_launch_starts_from_clean_task(self):
+    adb_utils.launch_app('com.example.app', self.mock_env)
+
+    self.assertEqual(
+        self.mock_issue_generic_request.call_args_list,
+        [
+            mock.call(
+                ['shell', 'am', 'force-stop', 'com.example.app'],
+                self.mock_env,
+                timeout_sec=30.0,
+            ),
+            mock.call(
+                ['shell', 'monkey', '-p', 'com.example.app', '1'],
+                self.mock_env,
+                timeout_sec=30.0,
+            ),
+        ],
+    )
 
 
 class AdbTypingTest(AdbTestSetup):

@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -291,7 +291,7 @@ def tap_screen(
   Returns:
     The adb response received after issuing the request.
   """
-  logging.info('Attemting to tap the screen at (%d, %d)', x, y)
+  logging.info('Attempting to tap the screen at (%d, %d)', x, y)
   response = env.execute_adb_call(
       adb_pb2.AdbRequest(
           tap=adb_pb2.AdbRequest.Tap(x=x, y=y), timeout_sec=timeout_sec
@@ -701,6 +701,11 @@ def launch_app(
   activity = get_adb_activity(app_name)
   if activity is None:
     #  If the app name is not in the mapping, assume it is a package name.
+    issue_generic_request(
+        ['shell', 'am', 'force-stop', app_name],
+        env,
+        timeout_sec=launch_timeout_sec,
+    )
     response = issue_generic_request(
         ['shell', 'monkey', '-p', app_name, '1'],
         env,
@@ -1543,9 +1548,9 @@ def _post_process_settings(settings: dict[str, str]) -> dict[str, Any]:
 def get_all_settings(env: env_interface.AndroidEnvInterface) -> dict[str, str]:
   """Get all settings from the Android system via ADB."""
   adb_commands = [
-      'settings list secure',
-      'settings list global',
-      'settings list system',
+      'shell settings list secure',
+      'shell settings list global',
+      'shell settings list system',
   ]
   settings = {}
   for adb_command in adb_commands:
@@ -1740,7 +1745,7 @@ def retry(n: int) -> Callable[[Any], Any]:
   """Decorator to retry ADB commands."""
 
   def decorator(func: Callable[..., T]) -> Callable[..., T]:
-    def wrapper(*args: Any, **kwargs: Any) -> T:
+    def wrapper(*args: Any, **kwargs: Any) -> T:  # pyrefly: ignore[bad-return]
       attempts = 0
       while attempts < n:
         try:

@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ def run_episode(
       )
   )
   return EpisodeResult(
-      done=result.done, step_data=_transpose_lod_to_dol(output)  # pylint: disable=undefined-variable
+      done=result.done, step_data=_transpose_lod_to_dol(output)  # pylint: disable=undefined-variable  # pyrefly: ignore[unbound-name]
   )
 
 

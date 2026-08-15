@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ def get_app_list_to_setup(
     for task_id in task_ids:
       if pascal_case_app_name in task_id:
         required_apps.add(app_class)
-  return tuple(required_apps)
+  return tuple(required_apps) or None
 
 
 def download_and_install_apk(

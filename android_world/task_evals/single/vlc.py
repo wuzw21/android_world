@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ class _VLC(task_eval.TaskEval):
 class VlcCreatePlaylist(_VLC):
   """Task to create a playlist in VLC."""
 
-  app_names = ['vlc']
+  app_names = ['vlc']  # pyrefly: ignore[bad-override]
   complexity = 2.8
   schema = {
       'type': 'object',
@@ -164,7 +164,7 @@ class VlcCreatePlaylist(_VLC):
 class VlcCreateTwoPlaylists(task_eval.TaskEval):
   """Task to create two playlists in VLC."""
 
-  app_names = ['vlc']
+  app_names = ['vlc']  # pyrefly: ignore[bad-override]
   complexity = 4.8
   schema = {
       'type': 'object',

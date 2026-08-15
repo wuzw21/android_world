@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ class SaveCopyOfReceiptTaskEval(task_eval.TaskEval):
       " same name in Download"
   )
 
-  schema = schema.no_params()
+  schema = schema.no_params()  # pyrefly: ignore[bad-override]
 
   def initialize_task(self, env: interface.AsyncEnv) -> None:
     super().initialize_task(env)

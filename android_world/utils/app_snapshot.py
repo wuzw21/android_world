@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ from android_world.utils import file_utils
 
 def _app_data_path(app_name: str) -> str:
   package_name = adb_utils.extract_package_name(
-      adb_utils.get_adb_activity(app_name)
+      adb_utils.get_adb_activity(app_name)  # pyrefly: ignore[bad-argument-type]
   )
   return file_utils.convert_to_posix_path("/data/data/", package_name)
 
 
 def _snapshot_path(app_name: str) -> str:
   package_name = adb_utils.extract_package_name(
-      adb_utils.get_adb_activity(app_name)
+      adb_utils.get_adb_activity(app_name)  # pyrefly: ignore[bad-argument-type]
   )
   return file_utils.convert_to_posix_path(
       device_constants.SNAPSHOT_DATA, package_name

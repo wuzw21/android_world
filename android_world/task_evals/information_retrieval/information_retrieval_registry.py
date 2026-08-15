@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ class InformationRetrievalRegistry(Generic[TaskType]):
     def task_template(self) -> task_pb2.Task:  # pylint:disable=unused-argument
       return task_proto
 
-    return type(
+    return type(  # pyrefly: ignore[bad-return]
         task_proto.name,
         (self.task_type,),
         {

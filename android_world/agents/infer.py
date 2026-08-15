@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ class LlmWrapper(abc.ABC):
       self,
       text_prompt: str,
   ) -> tuple[str, Optional[bool], Any]:
-    """Calling multimodal LLM with a prompt and a list of images.
+    """Calling text-only LLM with a prompt.
 
     Args:
       text_prompt: Text prompt.
@@ -116,7 +116,7 @@ class GeminiGcpWrapper(LlmWrapper, MultimodalLlmWrapper):
       raise RuntimeError('GCP API key not set.')
     genai.configure(api_key=os.environ['GCP_API_KEY'])
     self.llm = genai.GenerativeModel(
-        model_name,
+        model_name,  # pyrefly: ignore[bad-argument-type]
         safety_settings=None
         if enable_safety_checks
         else SAFETY_SETTINGS_BLOCK_NONE,
@@ -305,7 +305,7 @@ class Gpt4Wrapper(LlmWrapper, MultimodalLlmWrapper):
     for image in images:
       payload['messages'][0]['content'].append({
           'type': 'image_url',
-          'image_url': {
+          'image_url': {  # pyrefly: ignore[bad-assignment]
               'url': f'data:image/jpeg;base64,{self.encode_image(image)}'
           },
       })

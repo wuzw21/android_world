@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,8 +62,8 @@ def _generate_random_action(
       json_action.SWIPE,
       json_action.INPUT_TEXT,
   ]:
-    action_details['x'] = random.randint(0, screen_size[0] - 1)
-    action_details['y'] = random.randint(0, screen_size[1] - 1)
+    action_details['x'] = random.randint(0, screen_size[0] - 1)  # pyrefly: ignore[bad-assignment]
+    action_details['y'] = random.randint(0, screen_size[1] - 1)  # pyrefly: ignore[bad-assignment]
     if action_type == json_action.INPUT_TEXT:
       action_details['text'] = ''.join(
           random.choices(text_characters, k=10)

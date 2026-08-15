@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,6 +94,23 @@ class InterfaceTest(absltest.TestCase):
         cur,
         states[5],
     )
+
+  def test_get_state_uses_androidworld_by_default(self):
+    controller = mock.MagicMock()
+    native_state = interface.State(
+        ui_elements=[], pixels=np.empty([1, 2, 3]), forest=None
+    )
+    env = interface.AsyncAndroidEnv(controller)
+
+    with mock.patch.dict('os.environ', {}, clear=True), mock.patch.object(
+        interface,
+        '_process_timestep',
+        return_value=native_state,
+    ):
+      state = env.get_state()
+
+    controller.step.assert_called_once()
+    self.assertIs(state, native_state)
 
   def test_get_state_uses_omniflow_oob_get_state_when_explicit(self):
     payload = {

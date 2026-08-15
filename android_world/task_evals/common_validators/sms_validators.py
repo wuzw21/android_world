@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -265,7 +265,7 @@ class SimpleSMSSendSms(task_eval.TaskEval):
     )
     in_correct_app = (
         adb_utils.extract_package_name(
-            adb_utils.get_current_activity(env.controller)[0]
+            adb_utils.get_current_activity(env.controller)[0]  # pyrefly: ignore[bad-argument-type]
         )
         == "com.simplemobiletools.smsmessenger"
     )

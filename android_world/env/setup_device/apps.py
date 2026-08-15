@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ class AppSetup(abc.ABC):
   @classmethod
   def package_name(cls) -> str:
     return adb_utils.extract_package_name(
-        adb_utils.get_adb_activity(cls.app_name)
+        adb_utils.get_adb_activity(cls.app_name)  # pyrefly: ignore[bad-argument-type]
     )
 
   @classmethod
@@ -86,7 +86,7 @@ class AppSetup(abc.ABC):
     """Performs setup tasks specific to the app."""
     adb_utils.clear_app_data(
         adb_utils.extract_package_name(
-            adb_utils.get_adb_activity(cls.app_name)
+            adb_utils.get_adb_activity(cls.app_name)  # pyrefly: ignore[bad-argument-type]
         ),
         env.controller,
     )
@@ -131,7 +131,7 @@ class CameraApp(AppSetup):
     # Prevent pop-up asking for permission.
     adb_utils.grant_permissions(
         adb_utils.extract_package_name(
-            adb_utils.get_adb_activity(cls.app_name)
+            adb_utils.get_adb_activity(cls.app_name)  # pyrefly: ignore[bad-argument-type]
         ),
         "android.permission.ACCESS_COARSE_LOCATION",
         env.controller,
@@ -299,7 +299,7 @@ class AndroidWorldApp(AppSetup):
             "appops",
             "set",
             adb_utils.extract_package_name(
-                adb_utils.get_adb_activity("android world")
+                adb_utils.get_adb_activity("android world")  # pyrefly: ignore[bad-argument-type]
             ),
             "android:system_alert_window",
             "allow",
@@ -344,7 +344,7 @@ class SimpleCalendarProApp(AppSetup):
 
     # Grant permissions for calendar app.
     calendar_package = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity("simple calendar pro")
+        adb_utils.get_adb_activity("simple calendar pro")  # pyrefly: ignore[bad-argument-type]
     )
     adb_utils.grant_permissions(
         calendar_package,
@@ -403,7 +403,7 @@ class SimpleGalleryProApp(AppSetup):
 
     # Grant permissions for gallery app.
     package = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity(cls.app_name)
+        adb_utils.get_adb_activity(cls.app_name)  # pyrefly: ignore[bad-argument-type]
     )
     for permission in cls.PERMISSIONS:
       adb_utils.grant_permissions(package, permission, env.controller)
@@ -430,7 +430,7 @@ class SimpleSMSMessengerApp(AppSetup):
     super().setup(env)
 
     package_name = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity("simple sms messenger")
+        adb_utils.get_adb_activity("simple sms messenger")  # pyrefly: ignore[bad-argument-type]
     )
     adb_utils.set_default_app(
         "sms_default_application",
@@ -596,7 +596,7 @@ class OsmAndApp(AppSetup):
 
     # Grant permissions for OsmAnd mapping app.
     package = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity(cls.app_name)
+        adb_utils.get_adb_activity(cls.app_name)  # pyrefly: ignore[bad-argument-type]
     )
     for permission in cls.PERMISSIONS:
       adb_utils.grant_permissions(package, permission, env.controller)
@@ -636,7 +636,7 @@ class OpenTracksApp(AppSetup):
 
     # Grant permissions for open tracks app.
     open_tracks_package = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity("open tracks")
+        adb_utils.get_adb_activity("open tracks")  # pyrefly: ignore[bad-argument-type]
     )
     adb_utils.grant_permissions(
         open_tracks_package,
@@ -685,7 +685,7 @@ class VlcApp(AppSetup):
   def setup(cls, env: interface.AsyncEnv) -> None:
     super().setup(env)
     package = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity(cls.app_name)
+        adb_utils.get_adb_activity(cls.app_name)  # pyrefly: ignore[bad-argument-type]
     )
     adb_utils.grant_permissions(
         package, "android.permission.POST_NOTIFICATIONS", env.controller
@@ -762,7 +762,7 @@ class JoplinApp(AppSetup):
 
     # Grant permissions for joplin app.
     joplin_package = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity(cls.app_name)
+        adb_utils.get_adb_activity(cls.app_name)  # pyrefly: ignore[bad-argument-type]
     )
     adb_utils.grant_permissions(
         joplin_package,
@@ -819,7 +819,7 @@ class RetroMusicApp(AppSetup):
   def setup(cls, env: interface.AsyncEnv) -> None:
     super().setup(env)
     package = adb_utils.extract_package_name(
-        adb_utils.get_adb_activity("retro music")
+        adb_utils.get_adb_activity("retro music")  # pyrefly: ignore[bad-argument-type]
     )
     for permission in cls.PERMISSIONS:
       adb_utils.grant_permissions(package, permission, env.controller)

@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ def _generate_random_activities(
   return sqlite_schema_utils.get_random_items(
       num_activities,
       generate_item_fn=_generate_random_activity,
-      filter_fn=lambda x: _check_activity_conditions(x, exclusion_conditions),
+      filter_fn=lambda x: _check_activity_conditions(x, exclusion_conditions),  # pyrefly: ignore[bad-argument-type]
   )
 
 

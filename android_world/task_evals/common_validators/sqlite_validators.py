@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -221,7 +221,7 @@ class SQLiteApp(task_eval.TaskEval, abc.ABC):
         A list of row objects, each representing a row from the specified table
         in the database.
     """
-    return sqlite_utils.get_rows_from_remote_device(
+    return sqlite_utils.get_rows_from_remote_device(  # pyrefly: ignore[bad-return]
         self.table_name, self.db_path, self.row_type, env, timeout_sec
     )
 

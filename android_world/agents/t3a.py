@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -221,9 +221,9 @@ def _action_selection_prompt(
     The text prompt for action selection that will be sent to gpt4v.
   """
   if history:
-    history = '\n'.join(history)
+    history = '\n'.join(history)  # pyrefly: ignore[bad-assignment]
   else:
-    history = 'You just started, no action has been performed yet.'
+    history = 'You just started, no action has been performed yet.'  # pyrefly: ignore[bad-assignment]
 
   extra_guidelines = ''
   if additional_guidelines:
@@ -372,7 +372,7 @@ Action: {{"action_type": "status", "goal_status": "infeasible"}}"""
 
     try:
       converted_action = json_action.JSONAction(
-          **agent_utils.extract_json(action),
+          **agent_utils.extract_json(action),  # pyrefly: ignore[bad-unpacking]
       )
     except Exception as e:  # pylint: disable=broad-exception-caught
       print('Failed to convert the output to a valid action.')
@@ -389,7 +389,7 @@ Action: {{"action_type": "status", "goal_status": "infeasible"}}"""
       )
 
     if converted_action.action_type in ['click', 'long-press', 'input-text']:
-      if converted_action.index is not None and converted_action.index >= len(
+      if converted_action.index is not None and converted_action.index >= len(  # pyrefly: ignore[unsupported-operation]
           ui_elements
       ):
         print('Index out of range.')
@@ -403,8 +403,8 @@ Action: {{"action_type": "status", "goal_status": "infeasible"}}"""
         # Add mark for the target ui element, just used for visualization.
         m3a_utils.add_ui_element_mark(
             step_data['before_screenshot'],
-            ui_elements[converted_action.index],
-            converted_action.index,
+            ui_elements[converted_action.index],  # pyrefly: ignore[bad-index]
+            converted_action.index,  # pyrefly: ignore[bad-argument-type]
             logical_screen_size,
             adb_utils.get_physical_frame_boundary(self.env.controller),
             adb_utils.get_orientation(self.env.controller),
@@ -421,7 +421,7 @@ Action: {{"action_type": "status", "goal_status": "infeasible"}}"""
       )
 
     if converted_action.action_type == 'answer':
-      print('Agent answered with: ' + converted_action.text)
+      print('Agent answered with: ' + converted_action.text)  # pyrefly: ignore[unsupported-operation]
 
     try:
       self.env.execute_action(converted_action)
@@ -432,7 +432,7 @@ Action: {{"action_type": "status", "goal_status": "infeasible"}}"""
       )
       print(str(e))
       step_data['summary'] = (
-          'Some error happened executing the action '
+          'Some error happened executing the action '  # pyrefly: ignore[unsupported-operation]
           + converted_action.action_type
       )
       self.history.append(step_data)

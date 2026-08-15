@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ def create(properties: Sequence[Property]) -> object:
         "type": prop.type,
     }
     if prop.options:
-      schema["enum"] = prop.options
+      schema["enum"] = prop.options  # pyrefly: ignore[bad-assignment]
     return schema
 
   return {

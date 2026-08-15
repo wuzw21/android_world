@@ -1,4 +1,4 @@
-# Copyright 2025 The android_world Authors.
+# Copyright 2026 The android_world Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,11 +86,11 @@ def get_text_representation_of_rows(
   """
   if format_type == 'csv':
     header = '|'.join(fields)
-    rows = [
+    rows = [  # pyrefly: ignore[bad-assignment]
         '|'.join(str(getattr(instance, field, '')) for field in fields)
         for instance in rows
     ]
-    return header + '\n' + '\n'.join(rows)
+    return header + '\n' + '\n'.join(rows)  # pyrefly: ignore[no-matching-overload]
   elif format_type == 'text_block':
     blocks = []
     for instance in rows:
