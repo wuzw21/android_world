@@ -32,7 +32,7 @@ def _get_env(
     console_port: int,
     adb_path: str,
     grpc_port: int,
-    install_a11y_forwarding_app: bool,
+    install_a11y_forwarding_app: bool = True,
 ) -> interface.AsyncEnv:
   """Creates an AsyncEnv by connecting to an existing Android environment."""
   controller = android_world_controller.get_controller(

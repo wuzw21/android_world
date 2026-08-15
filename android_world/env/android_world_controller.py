@@ -375,7 +375,9 @@ def get_controller(
   )
   android_env_instance = loader.load(config)
   logging.info('Setting up AndroidWorldController.')
+  if install_a11y_forwarding_app:
+    return AndroidWorldController(android_env_instance)
   return AndroidWorldController(
       android_env_instance,
-      install_a11y_forwarding_app=install_a11y_forwarding_app,
+      install_a11y_forwarding_app=False,
   )
