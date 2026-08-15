@@ -95,7 +95,7 @@ class InterfaceTest(absltest.TestCase):
         states[5],
     )
 
-  def test_get_state_defaults_to_omniflow_oob_get_state(self):
+  def test_get_state_uses_omniflow_oob_get_state_when_explicit(self):
     payload = {
         'success': True,
         'xml': (

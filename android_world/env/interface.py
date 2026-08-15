@@ -79,7 +79,7 @@ class State:
 
 def _omniflow_use_oob_get_state() -> bool:
   raw_backend = (
-      os.environ.get('OMNIFLOW_OBSERVE_BACKEND', 'oob')
+      os.environ.get('OMNIFLOW_OBSERVE_BACKEND', 'androidworld')
       .strip()
       .lower()
       .replace('-', '_')
