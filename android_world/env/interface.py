@@ -15,9 +15,16 @@
 """Environment interface for real-time interaction Android."""
 
 import abc
+import base64
 import dataclasses
+import io
+import json
+import os
+import subprocess
 import time
 from typing import Any, Optional, Self
+import urllib.parse
+import urllib.request
 
 from absl import logging
 from android_env.components import action_type
@@ -68,6 +75,255 @@ class State:
         forest, screen_size=screen_size
     )
     return cls(pixels, forest, elements)
+
+
+def _omniflow_use_oob_get_state() -> bool:
+  raw_backend = (
+      os.environ.get('OMNIFLOW_OBSERVE_BACKEND', 'androidworld')
+      .strip()
+      .lower()
+      .replace('-', '_')
+  )
+  return raw_backend in {'oob', 'oob_native', 'oob_http', 'oob_get_state'}
+
+
+def _omniflow_controller_adb_serial(
+    controller: android_world_controller.AndroidWorldController,
+) -> str:
+  serial = os.environ.get('ANDROID_SERIAL', '').strip()
+  if serial:
+    return serial
+  try:
+    port = (
+        controller.env._coordinator._simulator._config.emulator_launcher.emulator_console_port
+    )
+    if port:
+      return f'emulator-{int(port)}'
+  except Exception:  # pylint: disable=broad-exception-caught
+    pass
+  return ''
+
+
+def _omniflow_run_adb(
+    controller: android_world_controller.AndroidWorldController,
+    adb_args: list[str],
+    *,
+    timeout_sec: float = 30.0,
+) -> subprocess.CompletedProcess[str]:
+  adb = os.environ.get('ADB_PATH') or 'adb'
+  command = [adb]
+  serial = _omniflow_controller_adb_serial(controller)
+  if serial:
+    command.extend(['-s', serial])
+  command.extend(adb_args)
+  return subprocess.run(
+      command,
+      text=True,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      check=False,
+      timeout=timeout_sec,
+  )
+
+
+def _omniflow_read_oob_debug_get_state(
+    controller: android_world_controller.AndroidWorldController,
+) -> dict[str, Any]:
+  package_name = os.environ.get(
+      'OMNIFLOW_OOB_PACKAGE', 'cn.com.omnimind.bot.debug'
+  ).strip()
+  receiver = os.environ.get(
+      'OMNIFLOW_OOB_GET_STATE_RECEIVER', '.DebugGetStateReceiver'
+  ).strip()
+  if receiver.startswith('.'):
+    component = f'{package_name}/{receiver}'
+  elif '/' in receiver:
+    component = receiver
+  else:
+    component = f'{package_name}/.{receiver}'
+  result_path = 'files/debug-get-state-result.json'
+  _omniflow_run_adb(
+      controller,
+      ['shell', 'run-as', package_name, 'rm', '-f', result_path],
+      timeout_sec=10.0,
+  )
+  broadcast = _omniflow_run_adb(
+      controller,
+      [
+          'shell',
+          'am',
+          'broadcast',
+          '-a',
+          f'{package_name}.RUN_GET_STATE',
+          '-n',
+          component,
+          '--ez',
+          'includeXml',
+          'true',
+          '--ez',
+          'includeScreenshot',
+          'true',
+          '--ez',
+          'includeIndexedContext',
+          'false',
+          '--ei',
+          'maxXmlChars',
+          '200000',
+      ],
+      timeout_sec=30.0,
+  )
+  if broadcast.returncode != 0:
+    return {
+        'success': False,
+        'error': 'OOB debug get_state broadcast failed: '
+        + (broadcast.stderr or broadcast.stdout or '').strip(),
+    }
+  deadline = time.monotonic() + 30.0
+  last_error = ''
+  while time.monotonic() < deadline:
+    read_result = _omniflow_run_adb(
+        controller,
+        ['shell', 'run-as', package_name, 'cat', result_path],
+        timeout_sec=10.0,
+    )
+    stdout = str(read_result.stdout or '').strip()
+    if read_result.returncode == 0 and stdout:
+      try:
+        payload = json.loads(stdout)
+      except json.JSONDecodeError as exc:
+        return {
+            'success': False,
+            'error': f'OOB debug get_state returned invalid JSON: {exc}',
+            'raw_tail': stdout[-1000:],
+        }
+      if isinstance(payload, dict):
+        return payload
+      return {'success': False, 'error': 'OOB debug get_state returned non-object JSON'}
+    last_error = (read_result.stderr or read_result.stdout or '').strip()
+    time.sleep(0.5)
+  return {
+      'success': False,
+      'error': 'OOB debug get_state result was not written: ' + last_error[-500:],
+  }
+
+
+def _omniflow_read_oob_get_state(
+    controller: android_world_controller.AndroidWorldController,
+) -> dict[str, Any]:
+  oob_url = os.environ.get('OMNIFLOW_OOB_DEVICE_URL', '').strip().rstrip('/')
+  if not oob_url:
+    return _omniflow_read_oob_debug_get_state(controller)
+  query = urllib.parse.urlencode({
+      'includeXml': 'true',
+      'includeScreenshot': 'true',
+      'includeIndexedContext': 'false',
+      'maxXmlChars': '200000',
+      'filterOverlay': 'true',
+  })
+  opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+  with opener.open(f'{oob_url}/get_state?{query}', timeout=10) as response:
+    payload = json.loads(response.read().decode('utf-8'))
+  return payload if isinstance(payload, dict) else {}
+
+
+def _omniflow_int_payload(
+    payload: dict[str, Any],
+    keys: tuple[str, ...],
+    default_value: int,
+) -> int:
+  for key in keys:
+    try:
+      value = int(payload.get(key) or 0)
+    except (TypeError, ValueError):
+      value = 0
+    if value > 0:
+      return value
+  return default_value
+
+
+def _omniflow_blank_pixels(
+    payload: dict[str, Any],
+    controller: android_world_controller.AndroidWorldController,
+) -> np.ndarray:
+  fallback_width = 1
+  fallback_height = 1
+  try:
+    fallback_width, fallback_height = controller.logical_screen_size
+  except Exception:  # pylint: disable=broad-exception-caught
+    pass
+  width = _omniflow_int_payload(
+      payload,
+      ('display_width', 'xml_display_width', 'width'),
+      int(fallback_width or 1),
+  )
+  height = _omniflow_int_payload(
+      payload,
+      ('display_height', 'xml_display_height', 'height'),
+      int(fallback_height or 1),
+  )
+  return np.zeros((max(1, height), max(1, width), 3), dtype=np.uint8)
+
+
+def _omniflow_decode_oob_pixels(
+    payload: dict[str, Any],
+    controller: android_world_controller.AndroidWorldController,
+) -> np.ndarray:
+  screenshot = payload.get('screenshot')
+  if isinstance(screenshot, dict):
+    encoded = (
+        screenshot.get('data')
+        or screenshot.get('data_uri')
+        or screenshot.get('dataUri')
+        or screenshot.get('image_base64')
+    )
+  else:
+    encoded = screenshot if isinstance(screenshot, str) else ''
+  if isinstance(encoded, str) and encoded.strip():
+    raw = encoded.strip()
+    if raw.startswith('data:image/') and ',' in raw:
+      raw = raw.split(',', 1)[1]
+    try:
+      image_bytes = base64.b64decode(raw, validate=False)
+      from PIL import Image  # pylint: disable=import-outside-toplevel
+
+      image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+      return np.asarray(image)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+      logging.warning('OmniFlow OOB screenshot decode failed: %s', exc)
+  return _omniflow_blank_pixels(payload, controller)
+
+
+def _omniflow_oob_state(
+    controller: android_world_controller.AndroidWorldController,
+) -> State | None:
+  if not _omniflow_use_oob_get_state():
+    return None
+  try:
+    payload = _omniflow_read_oob_get_state(controller)
+    if payload.get('success') is False:
+      logging.warning('OmniFlow OOB get_state failed: %s', payload)
+      return None
+    xml_text = str(payload.get('xml') or '').strip()
+    if not xml_text:
+      logging.warning('OmniFlow OOB get_state returned empty XML.')
+      return None
+    ui_elements = representation_utils.xml_dump_to_ui_elements(xml_text)
+    pixels = _omniflow_decode_oob_pixels(payload, controller)
+    return State(
+        pixels=pixels,
+        forest=None,
+        ui_elements=ui_elements,
+        auxiliaries={
+            'observe_backend': 'oob_get_state',
+            'package_name': str(payload.get('package_name') or ''),
+            'activity_name': str(payload.get('activity_name') or ''),
+            'xml': xml_text,
+            'raw_state': payload,
+        },
+    )
+  except Exception as exc:  # pylint: disable=broad-exception-caught
+    logging.warning('OmniFlow OOB get_state failed: %s', exc)
+    return None
 
 
 class AsyncEnv(abc.ABC):
@@ -238,6 +494,9 @@ class AsyncAndroidEnv(AsyncEnv):
     return _process_timestep(self.controller.reset())
 
   def _get_state(self):
+    oob_state = _omniflow_oob_state(self.controller)
+    if oob_state is not None:
+      return oob_state
     return _process_timestep(self.controller.step(_get_no_op_action()))
 
   def _get_stable_state(

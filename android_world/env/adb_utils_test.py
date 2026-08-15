@@ -176,6 +176,28 @@ class AdbSettingsTest(AdbTestSetup):
       )
 
 
+class AdbLaunchAppTest(AdbTestSetup):
+
+  def test_package_name_launch_starts_from_clean_task(self):
+    adb_utils.launch_app('com.example.app', self.mock_env)
+
+    self.assertEqual(
+        self.mock_issue_generic_request.call_args_list,
+        [
+            mock.call(
+                ['shell', 'am', 'force-stop', 'com.example.app'],
+                self.mock_env,
+                timeout_sec=30.0,
+            ),
+            mock.call(
+                ['shell', 'monkey', '-p', 'com.example.app', '1'],
+                self.mock_env,
+                timeout_sec=30.0,
+            ),
+        ],
+    )
+
+
 class AdbTypingTest(AdbTestSetup):
 
   def test_can_type_text(self):

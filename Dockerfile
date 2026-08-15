@@ -78,8 +78,8 @@ RUN apt-get update && \
 RUN ln -sf /usr/local/bin/python3.11 /usr/local/bin/python3 && \
     ln -sf /usr/local/bin/python3.11 /usr/local/bin/python
 
-# install pip
-RUN apt-get update && apt-get install python3-pip -y
+# install pip, socat and net-tools
+RUN apt-get update && apt-get install python3-pip socat iproute2 -y
 
 #====================================
 # Install uv
@@ -106,3 +106,8 @@ RUN uv pip install . --system
 # framework entry point
 #=======================
 ENTRYPOINT [ "./docker_setup/entrypoint.sh" ]
+
+# emulator adb port
+EXPOSE 5555
+# android world env server port
+EXPOSE 5000

@@ -697,15 +697,23 @@ def launch_app(
     _launch_default_app(app_name, env)
     return app_name
 
+  launch_timeout_sec = float(os.getenv('ANDROIDWORLD_APP_LAUNCH_TIMEOUT_SEC', '30'))
   activity = get_adb_activity(app_name)
   if activity is None:
     #  If the app name is not in the mapping, assume it is a package name.
+    issue_generic_request(
+        ['shell', 'am', 'force-stop', app_name],
+        env,
+        timeout_sec=launch_timeout_sec,
+    )
     response = issue_generic_request(
-        ['shell', 'monkey', '-p', app_name, '1'], env, timeout_sec=5
+        ['shell', 'monkey', '-p', app_name, '1'],
+        env,
+        timeout_sec=launch_timeout_sec,
     )
     logging.info('Launching app by package name, response: %r', response)
     return app_name
-  start_activity(activity, extra_args=[], env=env, timeout_sec=5)
+  start_activity(activity, extra_args=[], env=env, timeout_sec=launch_timeout_sec)
   return app_name
 
 

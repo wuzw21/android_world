@@ -86,6 +86,64 @@ class InterfaceTest(absltest.TestCase):
         states[5],
     )
 
+  def test_get_state_uses_androidworld_by_default(self):
+    controller = mock.MagicMock()
+    native_state = interface.State(
+        ui_elements=[], pixels=np.empty([1, 2, 3]), forest=None
+    )
+    env = interface.AsyncAndroidEnv(controller)
+
+    with mock.patch.dict('os.environ', {}, clear=True), mock.patch.object(
+        interface, '_omniflow_oob_state', return_value=None
+    ) as read_oob, mock.patch.object(
+        interface,
+        '_process_timestep',
+        return_value=native_state,
+    ):
+      state = env.get_state()
+
+    read_oob.assert_called_once_with(controller)
+    controller.step.assert_called_once()
+    self.assertIs(state, native_state)
+
+  def test_get_state_uses_omniflow_oob_when_explicit(self):
+    payload = {
+        'success': True,
+        'xml': (
+            '<hierarchy>'
+            '<node text="OOB Button" bounds="[1,2][3,4]" enabled="true" />'
+            '</hierarchy>'
+        ),
+        'display_width': 10,
+        'display_height': 20,
+        'package_name': 'com.example',
+        'activity_name': 'com.example/.MainActivity',
+    }
+    controller = mock.MagicMock()
+    controller.logical_screen_size = (10, 20)
+    env = interface.AsyncAndroidEnv(controller)
+
+    with mock.patch.dict(
+        'os.environ',
+        {
+            'OMNIFLOW_OBSERVE_BACKEND': 'oob',
+            'OMNIFLOW_OOB_DEVICE_URL': '',
+        },
+        clear=False,
+    ), mock.patch.object(
+        interface,
+        '_omniflow_read_oob_debug_get_state',
+        return_value=payload,
+    ) as read_oob:
+      state = env.get_state()
+
+    read_oob.assert_called_once_with(controller)
+    controller.step.assert_not_called()
+    self.assertEqual(state.auxiliaries['observe_backend'], 'oob_get_state')
+    self.assertEqual(state.auxiliaries['package_name'], 'com.example')
+    self.assertEqual(state.ui_elements[0].text, 'OOB Button')
+    self.assertEqual(state.pixels.shape, (20, 10, 3))
+
 
 if __name__ == "__main__":
   absltest.main()
