@@ -39,6 +39,9 @@ class GetAppListToSetupTest(absltest.TestCase):
     expected_apps = (apps.ClockApp, apps.DialerApp)
     self.assertCountEqual(setup.get_app_list_to_setup(task_ids), expected_apps)
 
+  def test_get_app_list_to_setup_falls_back_for_parameterized_task(self):
+    self.assertIsNone(setup.get_app_list_to_setup(["OpenAppTaskEval"]))
+
   def test_get_app_list_to_setup_with_space_in_app_name(self):
     task_ids = ["AudioRecorderRecordAudio"]
     expected_apps = (apps.AudioRecorder,)

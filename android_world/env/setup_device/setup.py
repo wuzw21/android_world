@@ -105,7 +105,7 @@ def get_app_list_to_setup(
     for task_id in task_ids:
       if pascal_case_app_name in task_id:
         required_apps.add(app_class)
-  return tuple(required_apps)
+  return tuple(required_apps) or None
 
 
 def download_and_install_apk(
