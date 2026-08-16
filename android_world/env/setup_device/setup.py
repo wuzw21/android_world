@@ -29,6 +29,7 @@ from android_env import env_interface
 from android_env.components import errors
 from android_env.proto import adb_pb2
 from android_world.env import adb_utils
+from android_world.env import android_world_controller
 from android_world.env import interface
 from android_world.env.setup_device import apps
 from android_world.utils import app_snapshot
@@ -122,13 +123,17 @@ def setup_app(app: Type[apps.AppSetup], env: interface.AsyncEnv) -> None:
   try:
     logging.info("Setting up app %s", app.app_name)
     app.setup(env)
-  except ValueError as e:
+  except ValueError as error:
     logging.warning(
-        "Failed to automatically setup app %s: %s.\n\nYou will need to"
-        " manually setup the app.",
+        "App setup failed with the native accessibility backend for %s: %s. "
+        "Retrying once with UIAutomator.",
         app.app_name,
-        e,
+        error,
     )
+    with android_world_controller.temporary_a11y_method(
+        env.controller, android_world_controller.A11yMethod.UIAUTOMATOR
+    ):
+      app.setup(env)
   app_snapshot.save_snapshot(app.app_name, env.controller)
 
 

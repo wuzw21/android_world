@@ -18,6 +18,7 @@ from absl.testing import absltest
 from android_env.components import errors
 from android_env.proto import adb_pb2
 from android_world.env import adb_utils
+from android_world.env import android_world_controller
 from android_world.env import interface
 from android_world.env import tools
 from android_world.env.setup_device import apps
@@ -85,6 +86,78 @@ class SetupTest(absltest.TestCase):
         )
       mock_app_setups[app_class].assert_any_call(env)
       mock_save_snapshot.assert_any_call(app_class.app_name, env.controller)
+
+  @mock.patch.object(app_snapshot, "save_snapshot")
+  def test_setup_app_retries_with_uiautomator_before_saving_snapshot(
+      self, mock_save_snapshot
+  ):
+    controller = mock.Mock()
+    controller._a11y_method = (
+        android_world_controller.A11yMethod.A11Y_FORWARDER_APP
+    )
+    env = mock.Mock(controller=controller)
+    seen_a11y_methods = []
+
+    class RetryApp(apps.AppSetup):
+      app_name = "retry_app"
+
+      @classmethod
+      def setup(cls, unused_env):
+        seen_a11y_methods.append(controller._a11y_method)
+        if len(seen_a11y_methods) == 1:
+          raise ValueError('Target text "Skip" not found.')
+
+    setup.setup_app(RetryApp, env)
+
+    self.assertEqual(
+        seen_a11y_methods,
+        [
+            android_world_controller.A11yMethod.A11Y_FORWARDER_APP,
+            android_world_controller.A11yMethod.UIAUTOMATOR,
+        ],
+    )
+    self.assertEqual(
+        controller._a11y_method,
+        android_world_controller.A11yMethod.A11Y_FORWARDER_APP,
+    )
+    mock_save_snapshot.assert_called_once_with(
+        RetryApp.app_name, env.controller
+    )
+
+  @mock.patch.object(app_snapshot, "save_snapshot")
+  def test_setup_app_does_not_save_snapshot_when_fallback_fails(
+      self, mock_save_snapshot
+  ):
+    controller = mock.Mock()
+    controller._a11y_method = (
+        android_world_controller.A11yMethod.A11Y_FORWARDER_APP
+    )
+    env = mock.Mock(controller=controller)
+    seen_a11y_methods = []
+
+    class FailingApp(apps.AppSetup):
+      app_name = "failing_app"
+
+      @classmethod
+      def setup(cls, unused_env):
+        seen_a11y_methods.append(controller._a11y_method)
+        raise ValueError('Target text "Skip" not found.')
+
+    with self.assertRaisesRegex(ValueError, 'Target text'):
+      setup.setup_app(FailingApp, env)
+
+    self.assertEqual(
+        seen_a11y_methods,
+        [
+            android_world_controller.A11yMethod.A11Y_FORWARDER_APP,
+            android_world_controller.A11yMethod.UIAUTOMATOR,
+        ],
+    )
+    self.assertEqual(
+        controller._a11y_method,
+        android_world_controller.A11yMethod.A11Y_FORWARDER_APP,
+    )
+    mock_save_snapshot.assert_not_called()
 
 
 class _App(apps.AppSetup):

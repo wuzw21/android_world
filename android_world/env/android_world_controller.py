@@ -150,6 +150,19 @@ class A11yMethod(enum.Enum):
   NONE = 'none'
 
 
+@contextlib.contextmanager
+def temporary_a11y_method(
+    controller: 'AndroidWorldController', a11y_method: A11yMethod
+):
+  """Temporarily selects an accessibility backend for controller reads."""
+  previous_a11y_method = controller._a11y_method
+  controller._a11y_method = a11y_method
+  try:
+    yield
+  finally:
+    controller._a11y_method = previous_a11y_method
+
+
 def apply_a11y_forwarder_app_wrapper(
     env: env_interface.AndroidEnvInterface, install_a11y_forwarding_app: bool
 ) -> env_interface.AndroidEnvInterface:
