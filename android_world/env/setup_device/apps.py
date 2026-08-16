@@ -512,10 +512,12 @@ class ExpenseApp(AppSetup):
     try:
       time.sleep(2.0)
       controller = tools.AndroidToolController(env=env.controller)
-      controller.click_element("NEXT")
+      controller.click_resource_id("com.arduia.expense:id/btn_continue")
       time.sleep(2.0)
-      controller.click_element("CONTINUE")
-      time.sleep(3.0)
+      controller.click_resource_id("com.arduia.expense:id/btn_continue")
+      controller.wait_for_resource_id(
+          "com.arduia.expense:id/fb_main_add", timeout_sec=10.0
+      )
     finally:
       adb_utils.close_app(cls.app_name, env.controller)
 

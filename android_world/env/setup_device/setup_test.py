@@ -210,5 +210,35 @@ class VlcSetupTest(absltest.TestCase):
     self.controller.click_element.assert_not_called()
 
 
+class ExpenseSetupTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.env = mock.create_autospec(interface.AsyncEnv)
+    self.enter_context(mock.patch.object(apps.AppSetup, "setup"))
+    self.enter_context(mock.patch.object(apps.time, "sleep"))
+    self.enter_context(mock.patch.object(adb_utils, "launch_app"))
+    self.enter_context(mock.patch.object(adb_utils, "close_app"))
+    controller_class = self.enter_context(
+        mock.patch.object(tools, "AndroidToolController")
+    )
+    self.controller = controller_class.return_value
+
+  def test_setup_waits_for_onboarding_and_initialized_home(self):
+    apps.ExpenseApp.setup(self.env)
+
+    self.assertEqual(
+        self.controller.click_resource_id.call_args_list,
+        [
+            mock.call("com.arduia.expense:id/btn_continue"),
+            mock.call("com.arduia.expense:id/btn_continue"),
+        ],
+    )
+    self.controller.wait_for_resource_id.assert_called_once_with(
+        "com.arduia.expense:id/fb_main_add", timeout_sec=10.0
+    )
+    self.controller.click_element.assert_not_called()
+
+
 if __name__ == "__main__":
   absltest.main()
