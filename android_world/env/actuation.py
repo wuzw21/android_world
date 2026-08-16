@@ -332,7 +332,24 @@ def _wait_and_find_click_element(
         ui_elements, target_text, case_sensitive
     )
     current = time.time()
-  raise ValueError(f'Target text "{target_text}" not found.')
+  visible_labels = _visible_element_labels(ui_elements)
+  raise ValueError(
+      f'Target text "{target_text}" not found. Visible labels: {visible_labels}'
+  )
+
+
+def _visible_element_labels(
+    ui_elements: list[representation_utils.UIElement],
+) -> list[str]:
+  labels = []
+  for element in ui_elements:
+    for value in (element.text, element.content_description):
+      label = str(value or '').strip()
+      if label and label not in labels:
+        labels.append(label)
+      if len(labels) == 20:
+        return labels
+  return labels
 
 
 def _find_target_element(

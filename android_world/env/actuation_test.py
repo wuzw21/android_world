@@ -14,6 +14,7 @@
 
 import copy
 import time
+from types import SimpleNamespace
 from unittest import mock
 
 from absl.testing import absltest
@@ -61,9 +62,13 @@ class TestWaitAndFindClickElement(absltest.TestCase):
         0,
         11,
     )  # Simulating 11 seconds have passed
-    with self.assertRaises(ValueError):
+    env = mock.MagicMock()
+    env.get_ui_elements.return_value = [
+        SimpleNamespace(text='Get started', content_description=None)
+    ]
+    with self.assertRaisesRegex(ValueError, 'Get started'):
       actuation._wait_and_find_click_element(
-          'target', mock.MagicMock(), case_sensitive=True
+          'target', env, case_sensitive=True
       )
 
 
