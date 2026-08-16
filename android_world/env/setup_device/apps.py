@@ -323,9 +323,15 @@ class ClipperApp(AppSetup):
     adb_utils.launch_app(cls.app_name, env.controller)
     try:
       time.sleep(2.0)
-      controller.click_element("Continue")
+      try:
+        controller.click_element("Continue")
+      except ValueError:
+        return
       time.sleep(2.0)
-      controller.click_element("OK")
+      try:
+        controller.click_element("OK")
+      except ValueError:
+        return
     finally:
       adb_utils.close_app(cls.app_name, env.controller)
 

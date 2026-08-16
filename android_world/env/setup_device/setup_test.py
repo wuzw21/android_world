@@ -283,6 +283,46 @@ class VlcSetupTest(absltest.TestCase):
     self.controller.click_element.assert_not_called()
 
 
+class ClipperSetupTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.env = mock.create_autospec(interface.AsyncEnv)
+    self.enter_context(mock.patch.object(apps.AppSetup, "setup"))
+    self.enter_context(mock.patch.object(apps.time, "sleep"))
+    self.enter_context(mock.patch.object(adb_utils, "launch_app"))
+    self.mock_close_app = self.enter_context(
+        mock.patch.object(adb_utils, "close_app")
+    )
+    controller_class = self.enter_context(
+        mock.patch.object(tools, "AndroidToolController")
+    )
+    self.controller = controller_class.return_value
+
+  def test_setup_allows_missing_optional_compatibility_dialogs(self):
+    self.controller.click_element.side_effect = ValueError("not shown")
+
+    apps.ClipperApp.setup(self.env)
+
+    self.controller.click_element.assert_called_once_with("Continue")
+    self.mock_close_app.assert_called_once_with(
+        apps.ClipperApp.app_name, self.env.controller
+    )
+
+  def test_setup_allows_missing_optional_confirmation_dialog(self):
+    self.controller.click_element.side_effect = [None, ValueError("not shown")]
+
+    apps.ClipperApp.setup(self.env)
+
+    self.assertEqual(
+        self.controller.click_element.call_args_list,
+        [mock.call("Continue"), mock.call("OK")],
+    )
+    self.mock_close_app.assert_called_once_with(
+        apps.ClipperApp.app_name, self.env.controller
+    )
+
+
 class ExpenseSetupTest(absltest.TestCase):
 
   def setUp(self):
