@@ -110,6 +110,9 @@ DEFAULT_ADB_PATH = '~/Android/Sdk/platform-tools/adb'
 _ACCESSIBILITY_FORWARDER_PACKAGE = (
     'com.google.androidenv.accessibilityforwarder'
 )
+_ACCESSIBILITY_FORWARDER_SERVICE = (
+    f'{_ACCESSIBILITY_FORWARDER_PACKAGE}/.AccessibilityForwarder'
+)
 _ACCESSIBILITY_FORWARDER_CRASH_MARKER = (
     f'application error: {_ACCESSIBILITY_FORWARDER_PACKAGE}'
 )
@@ -158,6 +161,63 @@ def apply_a11y_forwarder_app_wrapper(
   wrapped_env._configure_grpc()
   wrapped_env._relaunch_count = wrapped_env.stats()['relaunch_count']
   return wrapped_env
+
+
+def _adb_output(response: Any) -> str:
+  output = response.generic.output
+  if isinstance(output, bytes):
+    output = output.decode(errors='replace')
+  return str(output or '').strip()
+
+
+def _ensure_accessibility_forwarder_enabled(
+    env: env_interface.AndroidEnvInterface,
+) -> bool:
+  services_response = adb_utils.issue_generic_request(
+      ['shell', 'settings', 'get', 'secure', 'enabled_accessibility_services'],
+      env,
+  )
+  enabled_response = adb_utils.issue_generic_request(
+      ['shell', 'settings', 'get', 'secure', 'accessibility_enabled'], env
+  )
+  services = _adb_output(services_response)
+  accessibility_enabled = _adb_output(enabled_response)
+  changed = False
+  if _ACCESSIBILITY_FORWARDER_SERVICE.casefold() not in services.casefold():
+    existing_services = '' if services.casefold() == 'null' else services
+    service_value = ':'.join(
+        value
+        for value in (existing_services, _ACCESSIBILITY_FORWARDER_SERVICE)
+        if value
+    )
+    response = adb_utils.issue_generic_request(
+        [
+            'shell',
+            'settings',
+            'put',
+            'secure',
+            'enabled_accessibility_services',
+            service_value,
+        ],
+        env,
+    )
+    adb_utils.check_ok(response, 'Could not enable accessibility forwarder.')
+    changed = True
+  if accessibility_enabled != '1':
+    response = adb_utils.issue_generic_request(
+        [
+            'shell',
+            'settings',
+            'put',
+            'secure',
+            'accessibility_enabled',
+            '1',
+        ],
+        env,
+    )
+    adb_utils.check_ok(response, 'Could not enable Android accessibility.')
+    changed = True
+  return changed
 
 
 class AndroidWorldController(base_wrapper.BaseWrapper):
@@ -209,6 +269,7 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
     # pylint: disable=protected-access
     # pytype: disable=attribute-error
     # Reconnect to emulator and reload a11y wrapper in case we lose connection.
+    _ensure_accessibility_forwarder_enabled(self._original_env)
     self._env = get_controller(
         console_port=self.env._coordinator._simulator._config.emulator_launcher.emulator_console_port,
         adb_path=self.env._coordinator._simulator._config.adb_controller.adb_path,
