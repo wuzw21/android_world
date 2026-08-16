@@ -213,8 +213,11 @@ class AndroidWorldControllerTest(absltest.TestCase):
     mock_refresh_env.assert_called_once()
 
   @mock.patch.object(android_world_controller, 'get_controller')
+  @mock.patch.object(
+      android_world_controller, '_ensure_accessibility_forwarder_ready'
+  )
   def test_refresh_env_preserves_forwarder_install_mode(
-      self, mock_get_controller
+      self, mock_ensure_forwarder_ready, mock_get_controller
   ):
     mock_base_env = mock.Mock(spec=env_interface.AndroidEnvInterface)
     env = android_world_controller.AndroidWorldController(
@@ -234,6 +237,7 @@ class AndroidWorldControllerTest(absltest.TestCase):
         grpc_port=8554,
         install_a11y_forwarding_app=False,
     )
+    mock_ensure_forwarder_ready.assert_called_once_with(env._original_env)
 
   @mock.patch.object(android_world_controller, 'get_controller')
   @mock.patch.object(adb_utils, 'issue_generic_request')
@@ -255,6 +259,11 @@ class AndroidWorldControllerTest(absltest.TestCase):
         fake_adb_responses.create_successful_generic_response('0'),
         fake_adb_responses.create_successful_generic_response(''),
         fake_adb_responses.create_successful_generic_response(''),
+        fake_adb_responses.create_successful_generic_response(''),
+        fake_adb_responses.create_successful_generic_response(
+            'Bound services:{com.google.androidenv.accessibilityforwarder}'
+            '\nCrashed services:{}'
+        ),
     ]
 
     env.refresh_env()
@@ -275,7 +284,8 @@ class AndroidWorldControllerTest(absltest.TestCase):
                 'put',
                 'secure',
                 'enabled_accessibility_services',
-                'com.google.androidenv.accessibilityforwarder/.AccessibilityForwarder',
+                'com.google.androidenv.accessibilityforwarder/'
+                'com.google.androidenv.accessibilityforwarder.AccessibilityForwarder',
             ],
             env._original_env,
         ),
@@ -290,7 +300,7 @@ class AndroidWorldControllerTest(absltest.TestCase):
             ],
             env._original_env,
         ),
-    ])
+    ], any_order=True)
     self.assertIs(env._env, refreshed_env)
 
   @mock.patch.object(android_world_controller, 'get_controller')
@@ -313,6 +323,11 @@ class AndroidWorldControllerTest(absltest.TestCase):
         ),
         fake_adb_responses.create_successful_generic_response('1'),
         fake_adb_responses.create_successful_generic_response(''),
+        fake_adb_responses.create_successful_generic_response(''),
+        fake_adb_responses.create_successful_generic_response(
+            'Bound services:{com.google.androidenv.accessibilityforwarder}'
+            '\nCrashed services:{}'
+        ),
     ]
 
     env.refresh_env()
@@ -325,10 +340,73 @@ class AndroidWorldControllerTest(absltest.TestCase):
             'secure',
             'enabled_accessibility_services',
             'com.example/.ExistingService:'
-            'com.google.androidenv.accessibilityforwarder/.AccessibilityForwarder',
+            'com.google.androidenv.accessibilityforwarder/'
+            'com.google.androidenv.accessibilityforwarder.AccessibilityForwarder',
         ],
         env._original_env,
     )
+
+  @mock.patch.object(android_world_controller.time, 'sleep')
+  @mock.patch.object(android_world_controller, 'get_controller')
+  @mock.patch.object(adb_utils, 'issue_generic_request')
+  def test_refresh_env_restarts_enabled_but_crashed_forwarder(
+      self, mock_issue_generic_request, mock_get_controller, mock_sleep
+  ):
+    del mock_sleep
+    mock_base_env = mock.Mock(spec=env_interface.AndroidEnvInterface)
+    env = android_world_controller.AndroidWorldController(
+        mock_base_env, install_a11y_forwarding_app=False
+    )
+    env._env = mock.Mock()
+    env._env._coordinator._simulator._config.emulator_launcher.emulator_console_port = 5554
+    env._env._coordinator._simulator._config.emulator_launcher.grpc_port = 8554
+    env._env._coordinator._simulator._config.adb_controller.adb_path = '/sdk/adb'
+    mock_get_controller.return_value.env = mock.Mock()
+    service = (
+        'com.google.androidenv.accessibilityforwarder/'
+        'com.google.androidenv.accessibilityforwarder.AccessibilityForwarder'
+    )
+    mock_issue_generic_request.side_effect = [
+        fake_adb_responses.create_successful_generic_response(service),
+        fake_adb_responses.create_successful_generic_response('1'),
+        fake_adb_responses.create_successful_generic_response(
+            'Bound services:{}\n'
+            'Enabled services:{{' + service + '}}\n'
+            'Crashed services:{{' + service + '}}'
+        ),
+        fake_adb_responses.create_successful_generic_response(''),
+        fake_adb_responses.create_successful_generic_response(''),
+        fake_adb_responses.create_successful_generic_response(
+            'Bound services:{{' + service + '}}\nCrashed services:{}'
+        ),
+    ]
+
+    env.refresh_env()
+
+    mock_issue_generic_request.assert_has_calls([
+        mock.call(
+            [
+                'shell',
+                'settings',
+                'put',
+                'secure',
+                'enabled_accessibility_services',
+                'null',
+            ],
+            env._original_env,
+        ),
+        mock.call(
+            [
+                'shell',
+                'settings',
+                'put',
+                'secure',
+                'enabled_accessibility_services',
+                service,
+            ],
+            env._original_env,
+        ),
+    ])
 
   @mock.patch.object(android_world_controller, 'get_a11y_tree')
   @mock.patch.object(

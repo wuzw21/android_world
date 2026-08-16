@@ -111,6 +111,10 @@ _ACCESSIBILITY_FORWARDER_PACKAGE = (
     'com.google.androidenv.accessibilityforwarder'
 )
 _ACCESSIBILITY_FORWARDER_SERVICE = (
+    f'{_ACCESSIBILITY_FORWARDER_PACKAGE}/'
+    f'{_ACCESSIBILITY_FORWARDER_PACKAGE}.AccessibilityForwarder'
+)
+_ACCESSIBILITY_FORWARDER_SHORT_SERVICE = (
     f'{_ACCESSIBILITY_FORWARDER_PACKAGE}/.AccessibilityForwarder'
 )
 _ACCESSIBILITY_FORWARDER_CRASH_MARKER = (
@@ -170,8 +174,55 @@ def _adb_output(response: Any) -> str:
   return str(output or '').strip()
 
 
-def _ensure_accessibility_forwarder_enabled(
+def _accessibility_services(value: str) -> list[str]:
+  if not value or value.casefold() == 'null':
+    return []
+  return [service for service in value.split(':') if service]
+
+
+def _is_accessibility_forwarder(service: str) -> bool:
+  return service.casefold() in {
+      _ACCESSIBILITY_FORWARDER_SERVICE.casefold(),
+      _ACCESSIBILITY_FORWARDER_SHORT_SERVICE.casefold(),
+  }
+
+
+def _put_accessibility_services(
     env: env_interface.AndroidEnvInterface,
+    services: list[str],
+) -> None:
+  response = adb_utils.issue_generic_request(
+      [
+          'shell',
+          'settings',
+          'put',
+          'secure',
+          'enabled_accessibility_services',
+          ':'.join(services) or 'null',
+      ],
+      env,
+  )
+  adb_utils.check_ok(response, 'Could not update accessibility services.')
+
+
+def _forwarder_is_bound(dumpsys_output: str) -> bool:
+  bound_services = dumpsys_output.partition('Bound services:')[2].partition(
+      'Enabled services:'
+  )[0]
+  crashed_services = dumpsys_output.partition('Crashed services:')[2].partition(
+      'Client list'
+  )[0]
+  package = _ACCESSIBILITY_FORWARDER_PACKAGE.casefold()
+  return (
+      package in bound_services.casefold()
+      and package not in crashed_services.casefold()
+  )
+
+
+def _ensure_accessibility_forwarder_ready(
+    env: env_interface.AndroidEnvInterface,
+    max_retries: int = 5,
+    sleep_duration: float = 0.5,
 ) -> bool:
   services_response = adb_utils.issue_generic_request(
       ['shell', 'settings', 'get', 'secure', 'enabled_accessibility_services'],
@@ -180,29 +231,13 @@ def _ensure_accessibility_forwarder_enabled(
   enabled_response = adb_utils.issue_generic_request(
       ['shell', 'settings', 'get', 'secure', 'accessibility_enabled'], env
   )
-  services = _adb_output(services_response)
+  services = _accessibility_services(_adb_output(services_response))
   accessibility_enabled = _adb_output(enabled_response)
-  changed = False
-  if _ACCESSIBILITY_FORWARDER_SERVICE.casefold() not in services.casefold():
-    existing_services = '' if services.casefold() == 'null' else services
-    service_value = ':'.join(
-        value
-        for value in (existing_services, _ACCESSIBILITY_FORWARDER_SERVICE)
-        if value
-    )
-    response = adb_utils.issue_generic_request(
-        [
-            'shell',
-            'settings',
-            'put',
-            'secure',
-            'enabled_accessibility_services',
-            service_value,
-        ],
-        env,
-    )
-    adb_utils.check_ok(response, 'Could not enable accessibility forwarder.')
-    changed = True
+  other_services = [
+      service for service in services if not _is_accessibility_forwarder(service)
+  ]
+  desired_services = other_services + [_ACCESSIBILITY_FORWARDER_SERVICE]
+
   if accessibility_enabled != '1':
     response = adb_utils.issue_generic_request(
         [
@@ -216,8 +251,31 @@ def _ensure_accessibility_forwarder_enabled(
         env,
     )
     adb_utils.check_ok(response, 'Could not enable Android accessibility.')
-    changed = True
-  return changed
+
+  dumpsys_response = adb_utils.issue_generic_request(
+      ['shell', 'dumpsys', 'accessibility'], env
+  )
+  if (
+      services == desired_services
+      and accessibility_enabled == '1'
+      and _forwarder_is_bound(_adb_output(dumpsys_response))
+  ):
+    return False
+
+  if any(_is_accessibility_forwarder(service) for service in services):
+    _put_accessibility_services(env, other_services)
+    time.sleep(sleep_duration)
+  _put_accessibility_services(env, desired_services)
+
+  for attempt in range(max_retries):
+    dumpsys_response = adb_utils.issue_generic_request(
+        ['shell', 'dumpsys', 'accessibility'], env
+    )
+    if _forwarder_is_bound(_adb_output(dumpsys_response)):
+      return True
+    if attempt + 1 < max_retries:
+      time.sleep(sleep_duration)
+  raise RuntimeError('Accessibility forwarder did not become bound.')
 
 
 class AndroidWorldController(base_wrapper.BaseWrapper):
@@ -269,7 +327,7 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
     # pylint: disable=protected-access
     # pytype: disable=attribute-error
     # Reconnect to emulator and reload a11y wrapper in case we lose connection.
-    _ensure_accessibility_forwarder_enabled(self._original_env)
+    _ensure_accessibility_forwarder_ready(self._original_env)
     self._env = get_controller(
         console_port=self.env._coordinator._simulator._config.emulator_launcher.emulator_console_port,
         adb_path=self.env._coordinator._simulator._config.adb_controller.adb_path,
