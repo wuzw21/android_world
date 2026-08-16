@@ -319,19 +319,12 @@ class ClipperApp(AppSetup):
   @classmethod
   def setup(cls, env: interface.AsyncEnv) -> None:
     super().setup(env)
-    controller = tools.AndroidToolController(env=env.controller)
+    adb_utils.clear_legacy_permission_review_flags(
+        cls.package_name(), env.controller
+    )
     adb_utils.launch_app(cls.app_name, env.controller)
     try:
-      time.sleep(2.0)
-      try:
-        controller.click_element("Continue")
-      except ValueError:
-        return
-      time.sleep(2.0)
-      try:
-        controller.click_element("OK")
-      except ValueError:
-        return
+      time.sleep(0.5)
     finally:
       adb_utils.close_app(cls.app_name, env.controller)
 

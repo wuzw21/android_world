@@ -1267,6 +1267,44 @@ def grant_permissions(
   )
 
 
+def clear_legacy_permission_review_flags(
+    package_name: str,
+    env: env_interface.AndroidEnvInterface,
+) -> list[str]:
+  """Clears Android permission-review flags that block legacy app launch."""
+  response = issue_generic_request(
+      ['shell', 'dumpsys', 'package', package_name], env
+  )
+  check_ok(response, f'Failed to inspect permissions for {package_name}.')
+  package_dump = response.generic.output.decode('utf-8')
+  permission_pattern = re.compile(
+      r'^\s*([\w.]+):\s+granted=(?:true|false),\s+flags=\[([^]]*)\]',
+      re.MULTILINE,
+  )
+  permissions = [
+      permission
+      for permission, flags in permission_pattern.findall(package_dump)
+      if 'REVIEW_REQUIRED' in re.split(r'[|\s]+', flags.strip())
+  ]
+  for permission in permissions:
+    response = issue_generic_request(
+        [
+            'shell',
+            'pm',
+            'clear-permission-flags',
+            package_name,
+            permission,
+            'review-required',
+        ],
+        env,
+    )
+    check_ok(
+        response,
+        f'Failed to clear permission review for {package_name} {permission}.',
+    )
+  return permissions
+
+
 def execute_sql_command(
     db_path: str,
     sql_command: str,

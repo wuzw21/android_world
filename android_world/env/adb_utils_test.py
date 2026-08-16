@@ -67,6 +67,74 @@ class InstallApkTest(AdbTestSetup):
       adb_utils.install_apk('/tmp/app.apk', self.mock_env)
 
 
+class LegacyPermissionReviewTest(AdbTestSetup):
+
+  def test_clears_every_permission_marked_for_review(self):
+    dumpsys_response = adb_pb2.AdbResponse(
+        status=adb_pb2.AdbResponse.Status.OK
+    )
+    dumpsys_response.generic.output = b'''Packages:
+  Package [ca.zgrs.clipper]:
+    install permissions:
+      android.permission.INTERNET: granted=true
+    runtime permissions:
+      android.permission.READ_EXTERNAL_STORAGE: granted=false, flags=[ REVIEW_REQUIRED ]
+      android.permission.WRITE_EXTERNAL_STORAGE: granted=false, flags=[ REVIEW_REQUIRED|REVOKE_WHEN_REQUESTED ]
+      android.permission.CAMERA: granted=false, flags=[ USER_SENSITIVE_WHEN_DENIED ]
+'''
+    clear_response = adb_pb2.AdbResponse(
+        status=adb_pb2.AdbResponse.Status.OK
+    )
+    self.mock_issue_generic_request.side_effect = [
+        dumpsys_response,
+        clear_response,
+        clear_response,
+    ]
+
+    cleared = adb_utils.clear_legacy_permission_review_flags(
+        'ca.zgrs.clipper', self.mock_env
+    )
+
+    self.assertEqual(
+        cleared,
+        [
+            'android.permission.READ_EXTERNAL_STORAGE',
+            'android.permission.WRITE_EXTERNAL_STORAGE',
+        ],
+    )
+    self.assertEqual(
+        self.mock_issue_generic_request.call_args_list,
+        [
+            mock.call(
+                ['shell', 'dumpsys', 'package', 'ca.zgrs.clipper'],
+                self.mock_env,
+            ),
+            mock.call(
+                [
+                    'shell',
+                    'pm',
+                    'clear-permission-flags',
+                    'ca.zgrs.clipper',
+                    'android.permission.READ_EXTERNAL_STORAGE',
+                    'review-required',
+                ],
+                self.mock_env,
+            ),
+            mock.call(
+                [
+                    'shell',
+                    'pm',
+                    'clear-permission-flags',
+                    'ca.zgrs.clipper',
+                    'android.permission.WRITE_EXTERNAL_STORAGE',
+                    'review-required',
+                ],
+                self.mock_env,
+            ),
+        ],
+    )
+
+
 class PhoneUtilsTest(AdbTestSetup):
 
   def test_get_call_state_idle(self):
