@@ -212,6 +212,29 @@ class AndroidWorldControllerTest(absltest.TestCase):
     self.assertEqual(forest, 'success')
     mock_refresh_env.assert_called_once()
 
+  @mock.patch.object(android_world_controller, 'get_controller')
+  def test_refresh_env_preserves_forwarder_install_mode(
+      self, mock_get_controller
+  ):
+    mock_base_env = mock.Mock(spec=env_interface.AndroidEnvInterface)
+    env = android_world_controller.AndroidWorldController(
+        mock_base_env, install_a11y_forwarding_app=False
+    )
+    env._env = mock.Mock()
+    env._env._coordinator._simulator._config.emulator_launcher.emulator_console_port = 5554
+    env._env._coordinator._simulator._config.emulator_launcher.grpc_port = 8554
+    env._env._coordinator._simulator._config.adb_controller.adb_path = '/sdk/adb'
+    mock_get_controller.return_value.env = env._env
+
+    env.refresh_env()
+
+    mock_get_controller.assert_called_once_with(
+        console_port=5554,
+        adb_path='/sdk/adb',
+        grpc_port=8554,
+        install_a11y_forwarding_app=False,
+    )
+
   @mock.patch.object(android_world_controller, 'get_a11y_tree')
   @mock.patch.object(
       android_world_controller.AndroidWorldController, 'refresh_env'

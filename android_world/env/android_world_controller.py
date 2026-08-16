@@ -177,6 +177,7 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
       install_a11y_forwarding_app: bool = True,
   ):
     self._original_env = env
+    self._install_a11y_forwarding_app = install_a11y_forwarding_app
     if a11y_method == A11yMethod.A11Y_FORWARDER_APP:
       self._env = apply_a11y_forwarder_app_wrapper(
           env, install_a11y_forwarding_app
@@ -212,6 +213,7 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
         console_port=self.env._coordinator._simulator._config.emulator_launcher.emulator_console_port,
         adb_path=self.env._coordinator._simulator._config.adb_controller.adb_path,
         grpc_port=self.env._coordinator._simulator._config.emulator_launcher.grpc_port,
+        install_a11y_forwarding_app=self._install_a11y_forwarding_app,
     ).env
     # pylint: enable=protected-access
     # pytype: enable=attribute-error
