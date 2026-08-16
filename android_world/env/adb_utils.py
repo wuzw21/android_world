@@ -1068,7 +1068,9 @@ def install_apk(
   if not os.path.exists(apk_location):
     raise ValueError('APK does not exist.')
   response = issue_generic_request(
-      ['install', apk_location], env, timeout_sec=30.0
+      ['install', '--bypass-low-target-sdk-block', apk_location],
+      env,
+      timeout_sec=30.0,
   )
   if response.status != adb_pb2.AdbResponse.Status.OK:
     output = response.generic.output.decode('utf-8', errors='replace').strip()

@@ -50,7 +50,9 @@ class InstallApkTest(AdbTestSetup):
     adb_utils.install_apk('/tmp/app.apk', self.mock_env)
 
     self.mock_issue_generic_request.assert_called_once_with(
-        ['install', '/tmp/app.apk'], self.mock_env, timeout_sec=30.0
+        ['install', '--bypass-low-target-sdk-block', '/tmp/app.apk'],
+        self.mock_env,
+        timeout_sec=30.0,
     )
 
   @mock.patch.object(adb_utils.os.path, 'exists', return_value=True)
