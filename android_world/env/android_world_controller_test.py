@@ -239,6 +239,20 @@ class AndroidWorldControllerTest(absltest.TestCase):
     )
     mock_ensure_forwarder_ready.assert_called_once_with(env._original_env)
 
+  @mock.patch.object(
+      android_world_controller.AndroidWorldController, 'refresh_env'
+  )
+  def test_restart_accessibility_forwarder_forces_wrapper_rebuild(
+      self, mock_refresh_env
+  ):
+    env = object.__new__(android_world_controller.AndroidWorldController)
+
+    env.restart_accessibility_forwarder()
+
+    mock_refresh_env.assert_called_once_with(
+        force_accessibility_forwarder_restart=True
+    )
+
   @mock.patch.object(android_world_controller, 'get_controller')
   @mock.patch.object(adb_utils, 'issue_generic_request')
   def test_refresh_env_reenables_disabled_forwarder_service(

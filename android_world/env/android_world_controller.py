@@ -223,6 +223,7 @@ def _ensure_accessibility_forwarder_ready(
     env: env_interface.AndroidEnvInterface,
     max_retries: int = 5,
     sleep_duration: float = 0.5,
+    force_restart: bool = False,
 ) -> bool:
   services_response = adb_utils.issue_generic_request(
       ['shell', 'settings', 'get', 'secure', 'enabled_accessibility_services'],
@@ -256,7 +257,8 @@ def _ensure_accessibility_forwarder_ready(
       ['shell', 'dumpsys', 'accessibility'], env
   )
   if (
-      services == desired_services
+      not force_restart
+      and services == desired_services
       and accessibility_enabled == '1'
       and _forwarder_is_bound(_adb_output(dumpsys_response))
   ):
@@ -323,11 +325,17 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
   def env(self) -> env_interface.AndroidEnvInterface:
     return self._env
 
-  def refresh_env(self):
+  def refresh_env(self, force_accessibility_forwarder_restart: bool = False):
     # pylint: disable=protected-access
     # pytype: disable=attribute-error
     # Reconnect to emulator and reload a11y wrapper in case we lose connection.
-    _ensure_accessibility_forwarder_ready(self._original_env)
+    if force_accessibility_forwarder_restart:
+      _ensure_accessibility_forwarder_ready(
+          self._original_env,
+          force_restart=True,
+      )
+    else:
+      _ensure_accessibility_forwarder_ready(self._original_env)
     self._env = get_controller(
         console_port=self.env._coordinator._simulator._config.emulator_launcher.emulator_console_port,
         adb_path=self.env._coordinator._simulator._config.adb_controller.adb_path,
@@ -336,6 +344,9 @@ class AndroidWorldController(base_wrapper.BaseWrapper):
     ).env
     # pylint: enable=protected-access
     # pytype: enable=attribute-error
+
+  def restart_accessibility_forwarder(self) -> None:
+    self.refresh_env(force_accessibility_forwarder_restart=True)
 
   def ensure_accessibility_forwarder_ready(self) -> bool:
     windows_response = adb_utils.issue_generic_request(
